@@ -1,0 +1,57 @@
+package com.htc.productdevelopment.repository;
+
+import com.htc.productdevelopment.model.ContractDetails;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+
+import java.util.List;
+
+public interface ContractDetailsRepository extends JpaRepository<ContractDetails, Long> {
+
+    // Filter vendors by department
+    @Query("""
+        SELECT DISTINCT c.nameOfVendor
+        FROM ContractDetails c
+        WHERE c.requesterDepartment IN :departments
+        ORDER BY c.nameOfVendor
+    """)
+    List<String> findVendorsByDepartments(List<String> departments);
+
+    // Filter products by vendor + department
+    @Query("""
+        SELECT DISTINCT c.productName
+        FROM ContractDetails c
+        WHERE c.nameOfVendor = :vendor
+        AND c.requesterDepartment IN :departments
+        ORDER BY c.productName
+    """)
+    List<String> findProductsByVendor(String vendor, List<String> departments);
+
+    // Existing contracts dropdown
+    @Query("""
+        SELECT c
+        FROM ContractDetails c
+        WHERE c.requesterDepartment IN :departments
+        ORDER BY c.nameOfVendor, c.productName
+    """)
+    List<ContractDetails> findContractsByDepartments(List<String> departments);
+
+    List<ContractDetails> findByContractType(String contractType);
+
+    List<ContractDetails> findByContractTypeIgnoreCase(String contractType);
+
+    List<ContractDetails> findByNameOfVendorIgnoreCase(String vendorName);
+
+    ContractDetails findByNameOfVendorAndProductNameIgnoreCase(String vendorName, String productName);
+    
+    List<ContractDetails> findByRenewalStatusIgnoreCase(String renewalStatus);
+    
+    @Query("SELECT c FROM ContractDetails c WHERE UPPER(c.renewalStatus) = UPPER(?1) AND UPPER(c.nameOfVendor) = UPPER(?2) AND UPPER(c.productName) = UPPER(?3)")
+    List<ContractDetails> findByRenewalStatusAndNameOfVendorAndProductNameAllIgnoreCase(String renewalStatus, String vendorName, String productName);
+
+ 
+    ContractDetails findByJiraIssueKey(String jiraIssueKey);
+    
+
+}

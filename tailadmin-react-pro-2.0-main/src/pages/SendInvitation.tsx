@@ -1,0 +1,501 @@
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import { invitationApi, departmentApi, organizationApi, authApi } from "../services/api";
+import PageMeta from "../components/common/PageMeta";
+import PageBreadcrumb from "../components/common/PageBreadCrumb";
+import { sendSignInLinkToEmail } from "firebase/auth";
+import { auth } from "../firebase";
+
+interface Department {
+  id: number;
+  name: string;
+}
+
+interface Organization {
+  id: number;
+  name: string;
+}
+
+interface ActionCodeSettings {
+  url: string;
+  handleCodeInApp: boolean;
+  iOS?: {
+    bundleId: string;
+  };
+  android?: {
+    packageName: string;
+    installApp: boolean;
+    minimumVersion: string;
+  };
+  dynamicLinkDomain?: string;
+}
+
+export default function SendInvitation() {
+  const navigate = useNavigate();
+  const { userRole, isSuperAdmin, isAdmin } = useAuth();
+  const { userDepartmentId, userOrganizationId } = useAuth();
+  const [formData, setFormData] = useState({
+    email: "",
+    role: "REQUESTER",
+    departmentId: "", // Add departmentId to form data
+    organizationId: "" // Only for SUPER_ADMIN
+  });
+  
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<{type: string, text: string} | null>(null);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'error'>('success');
+  const [emailValidation, setEmailValidation] = useState<{isValid: boolean, message: string, checking: boolean} | null>(null); // Add email validation state
+  
+  // Create stable versions of the permission checks
+  const stableIsAdmin = useCallback(() => isAdmin, []);
+  const stableIsSuperAdmin = useCallback(() => isSuperAdmin, []);
+  const canSendInvite = useCallback(() => isSuperAdmin || isAdmin, [isSuperAdmin, isAdmin]);
+  const isSuperAdminMemo = useCallback(() => isSuperAdmin, [isSuperAdmin]);
+  
+  // Ref for debouncing email validation
+  const emailDebounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Check if user has permission to access this page
+  useEffect(() => {
+    if (!canSendInvite()) {
+      navigate("/");
+    }
+  }, [canSendInvite, navigate]);
+
+  // Fetch departments and organizations when component mounts
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const deptData = await departmentApi.getAllDepartments();
+        setDepartments(deptData);
+        
+        // Auto-select the current user's department for Admin users
+        if (userDepartmentId && !isSuperAdmin) {
+          setFormData(prev => ({
+            ...prev,
+            departmentId: userDepartmentId.toString()
+          }));
+        }
+        
+        if (isSuperAdmin) {
+          const orgData = await organizationApi.getAllOrganizations();
+          setOrganizations(orgData);
+          
+          // Auto-select the current user's organization for SUPER_ADMIN
+          if (userOrganizationId) {
+            setFormData(prev => ({
+              ...prev,
+              organizationId: userOrganizationId.toString()
+            }));
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        setMessage({type: "error", text: "Failed to load data: " + (error as Error).message});
+      }
+    };
+
+    if (canSendInvite()) {
+      fetchData();
+    }
+  }, [canSendInvite, isSuperAdmin, userDepartmentId, userOrganizationId]);
+
+  // Function to validate email
+  const validateEmail = async (email: string) => {
+    // Clear any existing timeout
+    if (emailDebounceRef.current) {
+      clearTimeout(emailDebounceRef.current);
+    }
+    
+    // If email is empty, clear validation
+    if (!email) {
+      setEmailValidation(null);
+      return;
+    }
+    
+    // Basic email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setEmailValidation({
+        isValid: false,
+        message: "Please enter a valid email address format",
+        checking: false
+      });
+      return;
+    }
+    
+    // Set checking state
+    setEmailValidation({
+      isValid: false,
+      message: "Checking email...",
+      checking: true
+    });
+    
+    // Debounce the API call
+    emailDebounceRef.current = setTimeout(async () => {
+      try {
+        const result = await authApi.checkUserExists(email);
+        
+        if (result.existsInFirebase) {
+          setEmailValidation({
+            isValid: false,
+            message: "This email address is already registered in our system. Please use a different email or sign in.",
+            checking: false
+          });
+        } else if (result.existsInDatabase) {
+          setEmailValidation({
+            isValid: false,
+            message: "This email address is already registered in our system. Please use a different email or sign in.",
+            checking: false
+          });
+        } else if (!result.isDomainLikelyValid) {
+          setEmailValidation({
+            isValid: false,
+            message: "This email domain appears to be invalid or uncommon. Please check the email address or use a common email provider like Gmail, Yahoo, etc.",
+            checking: false
+          });
+        } else {
+          setEmailValidation({
+            isValid: true,
+            message: "This email address format is valid. A confirmation email will be sent to verify the address.",
+            checking: false
+          });
+        }
+      } catch (error) {
+        console.error("Error checking email:", error);
+        setEmailValidation({
+          isValid: false,
+          message: "Error checking email validity. Please try again.",
+          checking: false
+        });
+      }
+    }, 500); // 500ms debounce
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    
+    // Validate email when email field changes
+    if (name === "email") {
+      validateEmail(value);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage(null);
+    
+    // Check if email is valid before submitting
+    if (emailValidation && !emailValidation.isValid) {
+      setMessage({type: "error", text: "Please fix the email validation errors before submitting."});
+      setLoading(false);
+      return;
+    }
+    
+    try {
+      // Prepare invitation data for pending user creation
+      const invitationData: {
+        email: string;
+        role: string;
+        departmentId: number | null;
+        organizationId?: number;
+      } = {
+        email: formData.email,
+        role: formData.role,
+        departmentId: formData.departmentId ? parseInt(formData.departmentId) : null
+      };
+      
+      // Add organizationId if provided
+      if (formData.organizationId) {
+        invitationData.organizationId = parseInt(formData.organizationId);
+      } else if (!isSuperAdmin && userOrganizationId) {
+        // For non-SUPER_ADMIN users, add organizationId if available
+        invitationData.organizationId = userOrganizationId;
+      }
+      
+      // First, create the invitation record in the database
+      const response = await invitationApi.createFirebaseInvitation(invitationData);
+      
+      // Log the action code settings for debugging
+      console.log('Sending invitation to:', formData.email);
+      console.log('Current origin:', window.location.origin);
+      console.log('Complete URL:', `${window.location.origin}/complete-invitation?email=${encodeURIComponent(formData.email)}`);
+
+      // Then, send the email link using Firebase Auth
+      const actionCodeSettings: ActionCodeSettings = {
+        // URL where the user will be redirected after clicking the email link
+        // Make sure this URL is authorized in Firebase Console
+        url: `${window.location.origin}/complete-invitation?email=${encodeURIComponent(formData.email)}`,
+        // Whether to handle the link in the app itself (true for mobile apps)
+        handleCodeInApp: true,
+        // iOS app bundle ID (if applicable)
+        // iOS: {
+        //   bundleId: 'com.example.ios'
+        // },
+        // Android app package name (if applicable)
+        // android: {
+        //   packageName: 'com.example.android',
+        //   installApp: true,
+        //   minimumVersion: '12'
+        // },
+        // Dynamic link domain (if using Firebase Dynamic Links)
+        // dynamicLinkDomain: 'example.page.link'
+      };      
+      // Send the sign-in link to the user's email
+      console.log('ActionCodeSettings:', actionCodeSettings);
+      await sendSignInLinkToEmail(auth, formData.email, actionCodeSettings)
+        .then(() => {
+          // Store email locally for verification when the link is clicked
+          window.localStorage.setItem('emailForSignIn', formData.email);
+          console.log('Email link sent successfully to:', formData.email);
+        })
+        .catch((error) => {
+          console.error('Error in sendSignInLinkToEmail:', error);
+          // Re-throw the error to be caught by the outer catch block
+          throw error;
+        });
+      
+      // Email is already stored in localStorage in the .then() block above
+      
+      // Show success toast
+      setToastMessage("Invitation sent successfully! The user will receive an email notification with instructions to complete their registration.");
+      setToastType('success');
+      setShowToast(true);
+      
+      // Reset form (but keep department selection for Admin users)
+      setFormData(prev => ({
+        ...prev,
+        email: "",
+        role: "REQUESTER",
+        departmentId: isSuperAdmin ? "" : (userDepartmentId ? userDepartmentId.toString() : ""),
+        organizationId: isSuperAdmin ? (userOrganizationId ? userOrganizationId.toString() : "") : ""
+      }));
+      
+      // Clear email validation
+      setEmailValidation(null);
+    } catch (error) {
+      console.error("Error sending invitation:", error);
+      // Show error toast
+      const firebaseError = error as { code?: string; message?: string };
+      let errorMessage = "Failed to send invitation";
+      if (firebaseError.code) {
+        switch (firebaseError.code) {
+          case 'auth/invalid-email':
+            errorMessage = "Invalid email address. Please check the email and try again.";
+            break;
+          case 'auth/unauthorized-continue-uri':
+            errorMessage = "Unauthorized domain. Please contact administrator to authorize this domain in Firebase Console.";
+            break;
+          case 'auth/invalid-action-code':
+            errorMessage = "Invalid action code. Please try again.";
+            break;
+          default:
+            errorMessage = firebaseError.message || "Unknown Firebase error";
+        }
+      } else {
+        errorMessage = (error as Error).message;
+      }
+      
+      setToastMessage(errorMessage);
+      setToastType('error');
+      setShowToast(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Only show the page to users with SEND_INVITATIONS permission
+  if (!canSendInvite()) {
+    return null;
+  }
+
+  return (
+    <div>
+      <PageMeta
+        title="Invite User - Admin Dashboard"
+        description="Invite new users to join the platform"
+      />
+      <PageBreadcrumb pageTitle="Invite User" />
+      <div className="min-h-screen rounded-2xl border border-gray-200 bg-white px-5 py-7 dark:border-gray-800 dark:bg-white/[0.03] xl:px-10 xl:py-12">
+        <div className="mx-auto w-full max-w-[630px]">
+          <h3 className="mb-6 text-center font-semibold text-gray-800 text-theme-xl dark:text-white/90 sm:text-2xl">
+            Invite New User
+          </h3>
+          {userRole === "SUPER_ADMIN" && (
+            <div className="mb-4 rounded-md bg-yellow-100 p-2 text-center text-sm text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+              SUPER ADMIN: You can assign users.
+              </div>
+          )}
+          
+          <div className="mb-6 rounded-lg bg-blue-100 p-4 dark:bg-blue-900">
+            <h4 className="mb-2 font-medium text-blue-800 dark:text-blue-100">Important Notice</h4>
+            <p className="text-sm text-blue-700 dark:text-blue-200">
+              Please ensure the email address is correct. A Firebase-powered confirmation email will be sent to verify the address.
+              Common email providers (Gmail, Yahoo, Outlook, etc.) are recommended.
+            </p>
+          </div>
+          
+          {showToast && (
+            <div className={`mb-4 rounded-lg p-4 ${toastType === 'success' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100'}`}>
+              {toastMessage}
+              <button 
+                onClick={() => setShowToast(false)}
+                className="float-right text-lg font-bold"
+              >
+                &times;
+              </button>
+            </div>
+          )}
+          
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label htmlFor="email" className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Email Address <span className="text-red-600">*</span>
+              </label>
+              <input
+                type="email"
+                id="email"
+                name="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                required
+                className={`w-full rounded-lg border bg-white px-4 py-2 text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:bg-gray-800 dark:text-white dark:focus:border-blue-500 dark:focus:ring-blue-900 ${
+                  emailValidation 
+                    ? emailValidation.isValid 
+                      ? "border-green-500" 
+                      : "border-red-500"
+                    : "border-gray-300 dark:border-gray-600"
+                }`}
+                placeholder="Enter email address"
+              />
+              {emailValidation && (
+                <div className={`mt-1 text-sm ${
+                  emailValidation.isValid 
+                    ? "text-green-600 dark:text-green-400" 
+                    : "text-red-600 dark:text-red-400"
+                }`}>
+                  {emailValidation.checking ? (
+                    <span>Checking email...</span>
+                  ) : (
+                    <span>{emailValidation.message}</span>
+                  )}
+                </div>
+              )}
+            </div>
+            
+            <div>
+              <label htmlFor="role" className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Role <span className="text-red-600">*</span>
+                 {/* {userRole === "SUPER_ADMIN" && <span className="text-xs text-yellow-600 dark:text-yellow-400">(SUPER_ADMIN)</span>} */}
+              </label>
+              <select
+                id="role"
+                name="role"
+                value={formData.role}
+                onChange={handleInputChange}
+                className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:focus:border-blue-500 dark:focus:ring-blue-900"
+              >
+                <option value="REQUESTER">Requester</option>
+                <option value="APPROVER">Approver</option>
+                {isSuperAdmin ? (
+                  <>
+                    <option value="ADMIN">Admin</option>
+                    <option value="SUPER_ADMIN">Super Admin</option>
+                  </>
+                ) : (
+                  <option value="ADMIN" disabled>
+                    Admin (SUPER_ADMIN only)
+                  </option>
+                )}
+              </select>
+              {!isSuperAdmin && (
+                <p className="mt-1 text-xs text-gray-500">Higher roles available to SUPER_ADMIN users only.</p>
+              )}
+            </div>
+            
+            {/* Department Selection */}
+            <div>
+              <label htmlFor="departmentId" className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Department <span className="text-red-600">*</span>{isSuperAdmin ? "" : "(Auto-selected based on your department)"}
+              </label>
+              <select
+                id="departmentId"
+                name="departmentId"
+                value={formData.departmentId}
+                onChange={handleInputChange}
+                required
+                disabled={!isSuperAdmin} // Disable for non-SUPER_ADMIN users
+                className={`w-full rounded-lg border bg-white px-4 py-2 text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:bg-gray-800 dark:text-white dark:focus:border-blue-500 dark:focus:ring-blue-900 ${!isSuperAdmin ? 'opacity-75 cursor-not-allowed' : ''}`}
+              >
+                <option value="">Select Department</option>
+                {departments.map((dept) => (
+                  <option key={dept.id} value={dept.id}>
+                    {dept.name}
+                  </option>
+                ))}
+              </select>
+              {!isSuperAdmin ? (
+                <p className="mt-1 text-xs text-gray-500">Department is auto-selected based on your login credentials.</p>
+              ) : (
+                <p className="mt-1 text-xs text-gray-500"></p>
+              )}
+            </div>
+            
+            {/* Organization Selection - Only visible to SUPER_ADMIN */}
+            {isSuperAdminMemo() && (
+              <div>
+                <label htmlFor="organizationId" className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Organization <span className="text-red-600">*</span> 
+                </label>
+                <select
+                  id="organizationId"
+                  name="organizationId"
+                  value={formData.organizationId}
+                  onChange={handleInputChange}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:focus:border-blue-500 dark:focus:ring-blue-900"
+                >
+                  <option value="">Select Organization (Optional)</option>
+                  {organizations.map((org) => (
+                    <option key={org.id} value={org.id}>
+                      {org.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            
+            <div>
+              <button
+                type="submit"
+                disabled={loading || (emailValidation ? emailValidation.checking : false)}
+                className="w-full rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 disabled:opacity-50 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800 inline-flex items-center justify-center"
+              >
+                {loading ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Sending...
+                  </>
+                ) : (
+                  "Send Invitation"
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}

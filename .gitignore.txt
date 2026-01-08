@@ -1,0 +1,19 @@
+# Java / Maven
+target/
+**/target/
+*.jar
+*.war
+
+# Node
+node_modules/
+dist/
+build/
+
+# Secrets
+keys/
+keys/*.json
+firebase.json
+
+# Env
+.env
+.env.*

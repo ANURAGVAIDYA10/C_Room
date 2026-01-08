@@ -1,0 +1,742 @@
+// src/services/jiraService.ts
+// Service for handling Jira API calls
+import { auth } from "../firebase";
+import { apiCall } from "./api";
+import { cacheManager } from "./CacheManager.ts";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+
+const JIRA_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache duration
+
+export const jiraTransitionMap: Record<string, string> = {
+  // Approve Transitions
+  "approve-request-created": "3",
+  "approve-pre-approval": "2",
+  "approve-request-review": "4",
+  "approve-negotiation-stage": "5",
+  "approve-post-approval": "7",
+
+  // Decline transitions (always ID 6)
+  "decline-request-created": "6",
+  "decline-pre-approval": "6",
+  "decline-request-review": "6",
+  "decline-negotiation": "6",
+  "decline-post-approval": "6",
+};
+
+// Generic API call function for Jira endpoints with caching and request deduplication
+async function jiraApiCall(endpoint: string, options: RequestInit = {}, useCache = false) {
+  const url = `${API_BASE_URL}${endpoint}`;
+  
+  // Use cache manager if caching is enabled
+  if (useCache) {
+    return cacheManager.fetchWithCache(url, options, JIRA_CACHE_DURATION);
+  }
+
+  const isFormData = options.body instanceof FormData;
+
+  const headers: any = {
+    Accept: "application/json",
+    ...(options.headers || {})
+  };
+
+  // ❌ DO NOT SET CONTENT-TYPE FOR FORMDATA
+  if (!isFormData) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  // Add timeout to prevent hanging requests
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+
+  try {
+    const response = await fetch(url, {
+      method: options.method || "GET",
+      body: options.body,
+      headers,
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      // Try to parse error response
+      let errorMessage = response.statusText;
+      try {
+        const err = await response.json();
+        errorMessage = err.message || err.errorMessages?.[0] || response.statusText;
+      } catch (parseError) {
+        // If we can't parse JSON, use the status text
+        errorMessage = response.statusText;
+      }
+      
+      // Provide more specific error messages based on status codes
+      if (response.status === 404) {
+        throw new Error(`Issue not found or you don't have permission to access it: ${errorMessage}`);
+      } else if (response.status === 401 || response.status === 403) {
+        throw new Error(`Access denied to Jira API: ${errorMessage}`);
+      } else {
+        throw new Error(`Failed to fetch issue: ${errorMessage}`);
+      }
+    }
+    
+    if (response.status === 204) return {};
+
+    return response.json().catch(() => response.text());
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    
+    // Handle network errors specifically
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      throw new Error(`Failed to connect to Jira API: ${error.message}`);
+    } else if (error.name === 'AbortError') {
+      throw new Error('Request timeout: Jira API took too long to respond');
+    }
+    throw error;
+  }
+}
+
+async function getProposalById(id: number) {
+  return jiraApiCall(`/api/jira/proposals/${id}`);
+}
+
+
+// Define the project data type
+export interface ProjectData {
+  key: string;
+  name: string;
+  projectTypeKey: string;
+  projectTemplateKey: string;
+  description: string;
+  leadAccountId: string;
+  assigneeType: string;
+}
+
+// Define the issue data type
+export interface IssueData {
+  issueType: string;
+  summary: string;
+  project: string;
+  description: string;
+  dueDate: string;
+  assignee?: string;
+}
+
+// Define the issue update data type
+export interface IssueUpdateData {
+  issueType: string;
+  summary: string;
+  project: string;
+  description: string;
+  dueDate: string;
+  assigneeCustom?: string;
+  reporterCustom?: string;
+  
+  // Procurement request custom fields
+  customfield_10290?: string; // Vendor Name
+  customfield_10291?: string; // Product Name
+  customfield_10292?: string; // Billing Type
+  customfield_10293?: string; // Current License Count
+  customfield_10294?: string; // Current Usage Count
+  customfield_10295?: string; // Current Units
+  customfield_10296?: string; // New License Count
+  customfield_10297?: string; // New Usage Count
+  customfield_10298?: string; // New Units
+  customfield_10243?: string; // Requester Name
+  customfield_10246?: string; // Requester Email
+  customfield_10244?: string; // Department
+  customfield_10299?: string; // Contract Type
+  customfield_10300?: string; // License Update Type
+  customfield_10301?: string; // Existing Contract ID
+  customfield_10303?: string; // Renewal Date
+  customfield_10304?: string; // Additional Comments
+}
+
+// Define the issue type data type
+export interface JiraIssueType {
+  id: string;
+  name: string;
+  description: string;
+  iconUrl: string;
+}
+
+// Define the assignee data type
+export interface Assignee {
+  accountId: string;
+  displayName: string;
+  avatarUrls: {
+    '48x48': string;
+  };
+}
+
+// Define the transition data type
+export interface IssueTransition {
+  id: string;
+  name: string;
+  to: {
+    id: string;
+    name: string;
+    statusCategory: {
+      id: number;
+      key: string;
+      colorName: string;
+    };
+  };
+}
+
+// Define the project metadata type
+export interface ProjectMeta {
+  id: string;
+  key: string;
+  name: string;
+  description: string;
+  projectTypeKey: string;
+  issuetypes: JiraIssueType[];
+}
+
+// Define the vendor profile response interface
+export interface VendorProfileResponse {
+  vendorId: number;
+  vendorName: string;
+  vendorOwner: string;
+  department: string;
+  product?: {
+    productId: number;
+    productName: string;
+    productType: string;
+  };
+}
+
+// Define the contract issue payload interface
+export interface ContractIssuePayload {
+  vendorDetails: {
+    vendorName: string;
+    productName: string;
+    vendorContractType: string;
+    currentUsageCount: string;
+    currentUnits: string;
+    currentLicenseCount: string;
+    newUsageCount: string;
+    newUnits: string;
+    newLicenseCount: string;
+
+    dueDate: string;
+    renewalDate: string;
+
+    requesterName: string;
+    requesterMail: string;
+    department: string;
+    organization: string;
+    additionalComment: string;
+
+    contractMode: string; // "new" | "existing"
+    selectedExistingContractId: string;
+
+    licenseUpdateType: string;
+  };
+}
+
+// Define the product item structure
+export interface ProductItem {
+  id: string;
+  productName: string;
+  nameOfVendor?: string;
+  productLink?: string;
+  productType?: 'license' | 'usage'; // New field to indicate if product is license-based or usage-based
+  // Added new fields for VendorList component
+  vendorId?: string;
+  vendorName?: string;
+  owner?: string;
+  department?: string;
+  activeAgreementSpend?: string;
+}
+
+// Define the proposal data interface
+export interface ProposalData {
+  proposalType: string;
+  licenseCount: string;
+  unitCost: string;
+  totalCost: string;
+  attachmentIds: string | null;
+  issueKey: string | undefined;
+}
+
+export interface CreateVendorPayload {
+  nameOfVendor: string;
+  productName: string;
+  productLink?: string;
+  productType: string;
+  // Added new fields for vendor management
+  owner?: string;
+  department?: string;
+}
+
+async function createVendor(payload: CreateVendorPayload): Promise<ProductItem> {
+  const response = await fetch("/api/jira/vendors", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to create vendor (status ${response.status})`);
+  }
+
+  return response.json();
+}
+
+
+async function getLastUploadedAttachment(issueKey: string, fileName: string) {
+  // Fetch issue with attachment field
+  const issue = await jiraApiCall(`/api/jira/issues/${issueKey}?expand=fields`);
+
+  const attachments = issue?.fields?.attachment || [];
+
+  // Find attachment by filename (try exact match first, then partial match)
+  let latest = attachments.find((a: any) => a.filename === fileName);
+  
+  // If not found, try partial match
+  if (!latest) {
+    latest = attachments.find((a: any) => a.filename && a.filename.includes(fileName));
+  }
+  
+  // If still not found, get the most recent attachment
+  if (!latest && attachments.length > 0) {
+    // Sort by created date and get the most recent
+    const sorted = [...attachments].sort((a: any, b: any) =>
+      new Date(b.created).getTime() - new Date(a.created).getTime()
+    );
+    latest = sorted[0];
+  }
+
+  if (!latest) {
+    console.warn(`⚠ No attachment found for filename: ${fileName}`);
+    return null;
+  }
+
+  return {
+    id: latest.id,
+    filename: latest.filename,
+    size: latest.size,
+    content: latest.content,
+    mimeType: latest.mimeType,
+    created: latest.created,
+    author: latest.author?.displayName,
+  };
+}
+
+async function deleteVendorProduct(id: number | string): Promise<void> {
+  await jiraApiCall(`/api/jira/vendors/${id}`, {
+    method: "DELETE",
+  });
+}
+
+
+// Jira API functions
+export const jiraService = {
+
+  // ------------------------------------------------------------------------- 
+  // 📦 Vendor Profiles API Endpoints (New System)
+  // These endpoints work with the new vendor_profiles and products tables
+  // -------------------------------------------------------------------------
+
+  // Get all vendors for dropdown (from new vendor_profiles system)
+  getVendorProfilesVendors: () => jiraApiCall("/api/vendor-profiles/vendors"),
+
+  // Get all vendor profiles
+  getAllVendorProfiles: () => jiraApiCall("/api/vendor-profiles"),
+
+  // Get vendor profiles by vendor name
+  getVendorProfilesByName: (vendorName: string) =>
+    jiraApiCall(`/api/vendor-profiles/${vendorName}`),
+
+  // Get vendor profiles as DTOs by vendor name (for frontend compatibility)
+  getVendorProfileDTOsByName: (vendorName: string) =>
+    jiraApiCall(`/api/vendor-profiles/${vendorName}/dtos`),
+
+  // Get vendor profiles by vendor name and product type
+  getVendorProfilesByNameAndType: (vendorName: string, productType: string) =>
+    jiraApiCall(`/api/vendor-profiles/${vendorName}/type/${productType}`),
+  
+  // Get vendor profiles by vendor name and product name
+  getVendorProfilesByNameAndProductName: (vendorName: string, productName: string) =>
+    jiraApiCall(`/api/vendor-profiles/${vendorName}/product/${productName}`),
+
+  // Get all products (from new products table)
+  getAllProducts: () => jiraApiCall("/api/products"),
+
+  // Get all products as DTOs (from new products table)
+  getAllProductDTOs: () => jiraApiCall("/api/products/dtos"),
+   // 1️⃣ Get Request Management Project (only one project is allowed)
+  getRequestManagementProject: () =>
+    jiraApiCall("/api/jira/projects/request-management"),
+
+  // 2️⃣ Get all Vendors for dropdown
+  getVendors: () => jiraApiCall("/api/jira/vendors"),
+
+  // 3️⃣ Get all Products for a Vendor
+  getProductsByVendor: (vendorName: string) =>
+    jiraApiCall(`/api/jira/vendors/${vendorName}/products`),
+    
+  // 4️⃣ Get product type for a Vendor and Product
+  getProductType: (vendorName: string, productName: string) =>
+    jiraApiCall(`/api/jira/vendors/${vendorName}/products/${productName}/type`),
+    
+  // 5️⃣ Get products of a specific type for a Vendor
+  getProductsByVendorAndType: (vendorName: string, productType: string) =>
+    jiraApiCall(`/api/jira/vendors/${vendorName}/products/type/${productType}`),
+
+  // 6️⃣ Get ALL existing contracts for dropdown
+  getContracts: () => jiraApiCall("/api/jira/contracts"),
+
+  // New method to get contracts by contract type
+  getContractsByType: (contractType: string) =>
+    jiraApiCall(`/api/jira/contracts/type/${contractType}`),
+
+  // New method to get contracts by contract type as DTOs
+  getContractsByTypeAsDTO: (contractType: string) =>
+    jiraApiCall(`/api/jira/contracts/type/${contractType}/dto`),
+  
+  // Get completed contracts for procurement renewal
+  getCompletedContracts: () => 
+    jiraApiCall(`/api/jira/contracts/completed`),
+  
+  // Get completed contracts by vendor name and product name
+  getCompletedContractsByVendorAndProduct: (vendorName: string, productName: string) => 
+    jiraApiCall(`/api/jira/contracts/completed/vendor/${vendorName}/product/${productName}`),
+
+  // 7️⃣ Get one contract by ID (used when selecting existing contract)
+  getContractById: (id: string) =>
+    jiraApiCall(`/api/jira/contracts/${id}`),
+
+  // 8️⃣ Get existing license count (upgrade/downgrade)
+  getLicenseCount: (vendorName: string, productName: string) =>
+    jiraApiCall(
+      `/api/jira/contracts/license-count?vendor=${vendorName}&product=${productName}`
+    ),
+    
+    
+  // 9️⃣ Create Contract Issue (NEW API)
+  createContractIssue: async (payload: any) => {
+  return jiraApiCall("/api/jira/contracts/create", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+},
+
+ createVendor: async (payload: CreateVendorPayload) => {
+    // Use the VendorProfile DTO API instead of the old vendor API
+    const response = await jiraApiCall("/api/vendor-profiles/dto", {
+      method: "POST",
+      body: JSON.stringify({
+        vendorName: payload.nameOfVendor,
+        vendorOwner: payload.owner,
+        department: payload.department,
+        productName: payload.productName,
+        productType: payload.productType
+      }),
+    });
+    
+    // Convert VendorProfile response to ProductItem format
+    const productItem: ProductItem = {
+      id: response.vendorId?.toString() || "",
+      productName: response.productName || payload.productName,
+      nameOfVendor: response.vendorName || payload.nameOfVendor,
+      productLink: payload.productLink,
+      productType: (response.productType as 'license' | 'usage') || 
+                   (payload.productType as 'license' | 'usage'),
+      vendorId: `V-${response.vendorId}`,
+      vendorName: response.vendorName,
+      owner: response.vendorOwner,
+      department: response.department,
+      activeAgreementSpend: "$10,000"
+    };
+    
+    return productItem;
+  },
+
+   // Remove Vendor
+  deleteVendorProduct: (id: number | string) => deleteVendorProduct(id),
+
+
+
+  // Get recent projects
+  getRecentProjects: () => jiraApiCall("/api/jira/projects/recent", {}, true), // Enable caching
+  
+  // Get all projects
+  getAllProjects: () => jiraApiCall("/api/jira/projects", {}, true), // Enable caching
+  
+  // Create a new project
+  createProject: (projectData: ProjectData) => jiraApiCall("/api/jira/projects", {
+    method: "POST",
+    body: JSON.stringify(projectData),
+  }),
+  
+  // Get a specific project by ID or key
+  getProjectByIdOrKey: (projectIdOrKey: string) => jiraApiCall(`/api/jira/projects/${projectIdOrKey}`),
+  
+  // Get a specific issue by ID or key
+  getIssueByIdOrKey: (issueIdOrKey: string) =>
+  jiraApiCall(`/api/jira/issues/${issueIdOrKey}?expand=names,fields,renderedFields`),
+
+  getIssue: (issueKey: string) =>
+  jiraApiCall(`/api/jira/issues/${issueKey}?expand=names,fields,renderedFields`),
+  
+  // Get issues for a specific project
+  getIssuesForProject: (projectKey: string) => jiraApiCall(`/api/jira/projects/${projectKey}/issues`),
+  
+  // Get all issues across all projects
+  getAllIssues: async (userRole?: string | null, userOrganizationId?: number | null, userDepartmentId?: number | null) => {
+    // Build query parameters
+    const params = new URLSearchParams();
+    
+    console.log("getAllIssues called with:", { userRole, userOrganizationId, userDepartmentId });
+    
+    if (userRole) {
+      params.append('userRole', userRole);
+    }
+    
+    // Ensure the values are properly converted to strings
+    if (userOrganizationId !== null && userOrganizationId !== undefined) {
+      params.append('userOrganizationId', userOrganizationId.toString());
+    }
+    
+    if (userDepartmentId !== null && userDepartmentId !== undefined) {
+      params.append('userDepartmentId', userDepartmentId.toString());
+    }
+    
+    const queryString = params.toString();
+    const url = queryString ? `/api/jira/issues?${queryString}` : "/api/jira/issues";
+    
+    console.log("Final URL:", url);
+    console.log("Query parameters being sent:", { userRole, userOrganizationId, userDepartmentId });
+    
+    return jiraApiCall(url);
+  },
+
+  // Get recent issues across all projects
+  getRecentIssues: () => jiraApiCall("/api/jira/issues/recent"),
+  
+  // Get all fields from Jira
+  getFields: () => jiraApiCall("/api/jira/fields", {}, true), // Enable caching
+  
+  // Get comments for a specific issue
+  getIssueComments: (issueIdOrKey: string) => jiraApiCall(`/api/jira/issues/${issueIdOrKey}/comments`),
+  
+  // Get worklogs for a specific issue
+  getIssueWorklogs: (issueIdOrKey: string) => jiraApiCall(`/api/jira/issues/${issueIdOrKey}/worklogs`),
+  
+  // Get attachments for a specific issue
+  getIssueAttachments: (issueIdOrKey: string) => jiraApiCall(`/api/jira/issues/${issueIdOrKey}/attachments`),
+  
+  // Get transitions for a specific issue
+  getIssueTransitions: async (issueIdOrKey: string): Promise<IssueTransition[]> => {
+    console.log(`Fetching transitions for issue: ${issueIdOrKey}`);
+    const response = await jiraApiCall(`/api/jira/issues/${issueIdOrKey}/transitions`);
+    console.log("Raw transitions response:", response);
+    console.log("Response type:", typeof response);
+    
+    // Handle different response formats
+    if (response && typeof response === 'object' && 'transitions' in response && Array.isArray(response.transitions)) {
+      console.log("Returning transitions from response.transitions:", response.transitions.length);
+      return response.transitions;
+    }
+    if (Array.isArray(response)) {
+      console.log("Returning transitions from array:", response.length);
+      return response;
+    }
+    console.log("Returning empty transitions array");
+    return [];
+  },
+
+  // Transition an issue to a new status
+  // Transition using predefined mapping
+transitionIssue: async (issueIdOrKey: string, transitionKey: string) => {
+  const realTransitionId = jiraTransitionMap[transitionKey];
+
+  if (!realTransitionId) {
+    throw new Error(`Invalid transition key: ${transitionKey}`);
+  }
+
+  return jiraApiCall(`/api/jira/issues/${issueIdOrKey}/transitions`, {
+    method: "POST",
+    body: JSON.stringify({
+      transition: { id: realTransitionId },
+    }),
+  });
+},
+
+// Transition using raw ID (used in your UI)
+transitionIssueCustom: async (issueKey: string, transitionId: string) => {
+  return apiCall(`/api/jira/issues/${issueKey}/transitions`, {
+    method: "POST",
+    body: JSON.stringify({
+      transition: { id: transitionId },
+    }),
+  });
+},
+
+
+  // Add an attachment to an issue
+  addAttachmentToIssue: async (issueIdOrKey: string, file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    // Use direct fetch to avoid CORS issues with multipart/form-data
+    const response = await fetch(`${API_BASE_URL}/api/jira/issues/${issueIdOrKey}/attachments`, {
+      method: "POST",
+      body: formData,
+      headers: {
+        "X-Atlassian-Token": "no-check"   // Jira-required header
+        // DO NOT SET CONTENT-TYPE - let browser set it with boundary
+      }
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      throw new Error(`Upload failed: ${err}`);
+    }
+
+    const jiraResponse = await response.json();
+    return jiraResponse;
+  },
+
+
+
+  // Test Jira API connectivity
+  testJiraConnectivity: () => jiraApiCall("/api/jira/test-connectivity"),
+
+  // Get all issue types from Jira
+  getIssueTypes: (): Promise<JiraIssueType[]> =>
+    jiraApiCall("/api/jira/issuetypes", {}, true), // Enable caching
+
+  getCreateMeta: async (projectKey?: string) => {
+    try {
+      const endpoint = projectKey
+        ? `/api/jira/issue/createmeta?projectKeys=${projectKey}&expand=projects.issuetypes.fields`
+        : `/api/jira/issue/createmeta?expand=projects.issuetypes.fields`;
+
+      const response = await jiraApiCall(endpoint);
+
+      if (response && response.projects) return response.projects;
+      if (Array.isArray(response)) return response;
+      return [];
+    } catch (error) {
+      console.error("Error in getCreateMeta:", error);
+      throw error;
+    }
+  },
+
+  createIssue: (issueData: IssueData) =>
+    jiraApiCall("/api/jira/issues", {
+      method: "POST",
+      body: JSON.stringify(issueData),
+    }),
+
+  updateIssue: (issueIdOrKey: string, issueData: IssueUpdateData) =>
+    jiraApiCall(`/api/jira/issues/${issueIdOrKey}`, {
+      method: "PUT",
+      body: JSON.stringify(issueData),
+    }),
+
+  deleteIssue: (issueIdOrKey: string) =>
+    jiraApiCall(`/api/jira/issues/${issueIdOrKey}`, {
+      method: "DELETE",
+    }),
+
+ // Replace old createIssueJira completely
+
+createIssueJira: async (payload: ContractIssuePayload) => {
+
+  console.log("📡 Sending to backend /api/jira/contracts/create:", payload);
+
+  const vd = payload.vendorDetails;
+
+  const toText = (v: unknown): string =>
+    v === null || v === undefined ? "" : String(v);
+
+  const finalPayload: ContractIssuePayload = {
+    vendorDetails: {
+      vendorName:               toText(vd.vendorName),
+      productName:              toText(vd.productName),
+      vendorContractType:       toText(vd.vendorContractType),
+      currentUsageCount:        toText(vd.currentUsageCount),
+      currentUnits:             toText(vd.currentUnits),
+      currentLicenseCount:      toText(vd.currentLicenseCount),
+
+      newUsageCount:            toText(vd.newUsageCount),
+      newUnits:                 toText(vd.newUnits),
+      newLicenseCount:          toText(vd.newLicenseCount),
+
+      dueDate:                  toText(vd.dueDate),
+      renewalDate:              toText(vd.renewalDate),
+
+      requesterName:            toText(vd.requesterName),
+      requesterMail:            toText(vd.requesterMail),
+      department:               toText(vd.department),
+      organization:             toText(vd.organization),
+      additionalComment:        toText(vd.additionalComment),
+
+      contractMode:             toText(vd.contractMode),
+      selectedExistingContractId: toText(vd.selectedExistingContractId),
+
+      licenseUpdateType:        toText(vd.licenseUpdateType),
+    },
+  };
+
+  return jiraApiCall("/api/jira/contracts/create", {
+    method: "POST",
+    body: JSON.stringify(finalPayload),
+  });
+},
+
+
+  getCurrentUser: () => jiraApiCall("/api/jira/myself"),
+
+  addCommentToIssue: (issueIdOrKey: string, commentBody: string) =>
+    jiraApiCall(`/api/jira/issues/${issueIdOrKey}/comments`, {
+      method: "POST",
+      body: JSON.stringify({ body: commentBody }),
+    }),
+
+  // Save proposal data with attachments
+  saveProposal: (proposalData: ProposalData) => {
+    return jiraApiCall("/api/jira/proposals", {
+      method: "POST",
+      body: JSON.stringify(proposalData),
+    });
+  },
+
+  // Get all proposals for a specific issue
+  getProposalsByIssueKey: (issueKey: string) => {
+    return jiraApiCall(`/api/jira/proposals/issue/${issueKey}`);
+  },
+  getLastUploadedAttachment,
+
+  getProposalById,
+  
+  // Get attachments by issue key from our database
+  getAttachmentsByIssueKey: (issueKey: string) => {
+    return jiraApiCall(`/api/jira/contracts/attachments/issue/${issueKey}`);
+  },
+  
+  // Get local attachments by issue key
+  getLocalAttachmentsByIssueKey: (issueKey: string) => {
+    return jiraApiCall(`/api/jira/contracts/local-attachments/issue/${issueKey}`);
+  },
+  
+  // Get local attachment content
+  getLocalAttachmentContent: (attachmentId: number) => {
+    return jiraApiCall(`/api/jira/contracts/local-attachments/${attachmentId}/content`);
+  },
+  
+  // Save attachment to contract
+  saveAttachmentToContract: async (attachmentData: any) => {
+    return jiraApiCall(`/api/jira/contracts/save-attachment`, {
+      method: "POST",
+      body: JSON.stringify(attachmentData),
+    });
+  },
+  
+}; // END OF OBJECT
+
+export default jiraService;

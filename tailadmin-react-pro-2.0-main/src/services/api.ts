@@ -1,0 +1,315 @@
+// services/api.ts
+import { auth } from "../firebase";
+
+// Cache for storing API responses
+const apiCache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache duration
+
+// Generic API call function with automatic Authorization header
+export async function apiCall(endpoint: string, options: RequestInit = {}, useCache = false) {
+  // Check cache first if enabled
+  const cacheKey = `${endpoint}-${JSON.stringify(options)}`;
+  if (useCache) {
+    const cached = apiCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+      console.log(`Returning cached response for ${endpoint}`);
+      return cached.data;
+    }
+  }
+
+  // Get the current user's ID token
+  const user = auth.currentUser;
+  let idToken = null;
+  if (user) {
+    try {
+      idToken = await user.getIdToken();
+    } catch (error) {
+      console.error("Error getting ID token:", error);
+    }
+  }
+
+  // Prepare headers
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+
+  // Add Authorization header if we have a token
+  if (idToken) {
+    headers["Authorization"] = `Bearer ${idToken}`;
+  }
+
+  // Merge with any existing headers
+  Object.assign(headers, options.headers || {});
+
+  // Prepare the full URL
+  // Dynamically determine API URL based on current host
+  let apiUrl = import.meta.env.VITE_API_URL;
+  
+  if (!apiUrl) {
+    // If no VITE_API_URL is set, determine based on current host
+    const currentHost = window.location.hostname;
+    const currentPort = window.location.port;
+    
+    if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
+      // Local development
+      apiUrl = 'http://localhost:8080';
+    } else if (currentHost === '192.168.1.115') {
+      // Network access
+      apiUrl = 'http://192.168.1.115:8080';
+    } else {
+      // Default to localhost for any other host
+      apiUrl = 'http://localhost:8080';
+    }
+  }
+  
+  const url = `${apiUrl}${endpoint}`;
+  // Add timeout to prevent hanging requests
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+  
+  try {
+    // Make the request with timeout
+    const response = await fetch(url, {
+      ...options,
+      headers,
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    // Handle non-OK responses
+    if (!response.ok) {
+      let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+      
+      try {
+        // Try to parse the error response as JSON
+        const errorText = await response.text();
+        const errorData = JSON.parse(errorText);
+        if (errorData.error) {
+          errorMessage = errorData.error;
+        }
+      } catch (parseError: unknown) {
+        // If parsing fails, use the status text
+        console.warn("Failed to parse error response:", parseError);
+      }
+      
+      throw new Error(errorMessage);
+    }
+    
+    // Check if response is JSON
+    const contentType = response.headers.get("content-type");
+    let data;
+    if (contentType && contentType.includes("application/json")) {
+      data = await response.json();
+    } else {
+      // Return text for non-JSON responses
+      data = await response.text();
+    }
+
+    // Cache the response if enabled
+    if (useCache) {
+      apiCache.set(cacheKey, { data, timestamp: Date.now() });
+    }
+
+    return data;
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+    
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Request timed out');
+    }
+    
+    throw error;
+  }
+}
+
+// User API functions
+export const userApi = {
+  // Get all users
+  getAllUsers: () => apiCall("/api/users"),
+  
+  // Get users by organization and department
+  getUsersByOrganizationAndDepartment: (organizationId: number | null, departmentId: number | null) => {
+    if (organizationId && departmentId) {
+      return apiCall(`/api/users?organizationId=${organizationId}&departmentId=${departmentId}`);
+    } else if (organizationId) {
+      return apiCall(`/api/users?organizationId=${organizationId}`);
+    } else if (departmentId) {
+      return apiCall(`/api/users?departmentId=${departmentId}`);
+    }
+    return apiCall("/api/users");
+  },
+  
+  // Get user by ID
+  getUserById: (id: string) => apiCall(`/api/users/${id}`),
+  
+  // Create a new user in Firebase and sync to database
+  createFirebaseUser: (userData: { 
+    email: string; 
+    password: string; 
+    name: string; 
+    role: string;
+    department?: { id: number } | null;
+    organization?: { id: number } | null;
+  }) => apiCall("/api/auth/create-user", {
+    method: "POST",
+    body: JSON.stringify(userData),
+  }),
+  
+  // Create a new user (existing endpoint)
+  createUser: (userData: { [key: string]: string | number | boolean }) => apiCall("/api/users", {
+    method: "POST",
+    body: JSON.stringify(userData),
+  }),
+  
+  // Update user
+  updateUser: (id: string, userData: { [key: string]: string | number | boolean }) => apiCall(`/api/users/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(userData),
+  }),
+
+
+  // Delete user by Firebase UID (Auth route)
+  deleteUserByUid: (uid: string) => apiCall(`/api/auth/users/${uid}`, {
+    method: "DELETE",
+  }),
+  
+  // Disable user
+  // Disable user (set active=false)
+disableUser: (id: string) =>
+  apiCall(`/api/users/${id}`, {
+    method: "PUT",
+    body: JSON.stringify({ active: false })
+  }),
+
+// Enable user (set active=true)
+enableUser: (id: string) =>
+  apiCall(`/api/users/${id}`, {
+    method: "PUT",
+    body: JSON.stringify({ active: true })
+  }),
+
+// Delete user using DB ID
+deleteUser: (id: string) =>
+  apiCall(`/api/users/${id}`, {
+    method: "DELETE"
+  }),
+
+};
+
+// Department API functions
+export const departmentApi = {
+  // Get all departments
+  getAllDepartments: () => apiCall("/api/users/departments"),
+  
+  // Get department by ID
+  getDepartmentById: (id: string) => apiCall(`/api/users/departments/${id}`),
+};
+
+// Organization API functions
+export const organizationApi = {
+  // Get all organizations
+  getAllOrganizations: () => apiCall("/api/organizations"),
+  
+  // Get organization by ID
+  getOrganizationById: (id: string) => apiCall(`/api/organizations/${id}`),
+  
+  // Create organization
+  createOrganization: (orgData: { name: string; parentId?: number }) => apiCall("/api/organizations", {
+    method: "POST",
+    body: JSON.stringify(orgData),
+  }),
+  
+  // Update organization
+  updateOrganization: (id: string, orgData: { name: string; parentId?: number }) => apiCall(`/api/organizations/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(orgData),
+  }),
+  
+  // Delete organization
+  deleteOrganization: (id: string) => apiCall(`/api/organizations/${id}`, {
+    method: "DELETE",
+  }),
+  
+  // Get child organizations
+  getChildOrganizations: (id: string) => apiCall(`/api/organizations/${id}/children`),
+};
+
+// Invitation API functions
+export const invitationApi = {
+  // Create invitation
+  createInvitation: (invitationData: { 
+    email: string; 
+    role: string; 
+    departmentId: number | null; 
+    organizationId?: number; 
+  }) => apiCall("/api/invitations/create", {
+    method: "POST",
+    body: JSON.stringify(invitationData),
+  }),
+  
+  // Create Firebase-based invitation
+  createFirebaseInvitation: (invitationData: { 
+    email: string; 
+    role: string; 
+    departmentId: number | null; 
+    organizationId?: number; 
+  }) => apiCall("/api/invitations/create-firebase", {
+    method: "POST",
+    body: JSON.stringify(invitationData),
+  }),
+  
+  // Verify invitation
+  verifyInvitation: (token: string, email: string) => apiCall(`/api/invitations/verify?token=${token}&email=${email}`),
+  
+  // Verify invitation by email only (for OAuth flow)
+  verifyInvitationByEmail: (email: string) => apiCall(`/api/invitations/verify-email?email=${email}`),
+  
+  // Complete invitation
+  completeInvitation: (completionData: { 
+    token: string; 
+    email: string; 
+    fullName: string; 
+    password: string 
+  }) => apiCall("/api/invitations/complete", {
+    method: "POST",
+    body: JSON.stringify(completionData),
+  }),
+};
+
+// Notification API functions
+export const notificationApi = {
+  // Get all notifications for the current user
+  getNotifications: () => apiCall("/api/notifications", {}, true), // Enable caching
+  
+  // Get unread notifications count for the current user
+  getUnreadCount: () => apiCall("/api/notifications/unread-count", {}, true), // Enable caching
+  
+  // Mark a notification as read
+  markAsRead: (id: number) => apiCall(`/api/notifications/${id}/mark-as-read`, {
+    method: "PUT"
+  }),
+  
+  // Mark all notifications as read
+  markAllAsRead: () => apiCall("/api/notifications/mark-all-as-read", {
+    method: "PUT"
+  }),
+  
+  // Delete a notification
+  deleteNotification: (id: number) => apiCall(`/api/notifications/${id}`, {
+    method: "DELETE"
+  }),
+
+  // Delete all notifications
+  clearAll: () => apiCall("/api/notifications/all", {
+    method: "DELETE"
+  })
+};
+
+// Auth API functions
+export const authApi = {
+  // Check if user exists in Firebase or database by email
+  checkUserExists: (email: string) => apiCall(`/api/auth/check-user-exists?email=${encodeURIComponent(email)}`),
+};
+
+export default { userApi, departmentApi, organizationApi, invitationApi, notificationApi };

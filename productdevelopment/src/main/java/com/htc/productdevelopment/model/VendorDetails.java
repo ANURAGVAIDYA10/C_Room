@@ -1,0 +1,39 @@
+package com.htc.productdevelopment.model;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
+
+import jakarta.persistence.*;
+import lombok.*;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Entity
+@Table(name = "vendor_details")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class VendorDetails {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "name_of_vendor")
+    private String nameOfVendor;
+
+    @Column(name = "product_name")
+    private String productName;
+
+    @Column(name = "product_link")
+    private String productLink;
+    
+    @Column(name = "product_type")
+    private String productType; // New field to indicate if product is license-based or usage-based
+    
+    @Column(name = "vendor_owner")
+    private String vendorOwner; // New field for vendor owner
+    
+    @Column(name = "department")
+    private String department; // New field for department
+}

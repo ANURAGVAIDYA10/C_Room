@@ -1,6 +1,8 @@
 import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-router";
 import { AuthProvider } from "./context/AuthContext";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
+import ProtectedPermissionRoute from "./components/auth/ProtectedPermissionRoute";
+import { Permission } from "./config/permissions";
 import CreateIssueModal from "./main pages/Request Creation/CreateIssueModal";
 import { useState, useEffect } from 'react';
 import Ecommerce from "./pages/Dashboard/Ecommerce";
@@ -84,6 +86,7 @@ import UsersList from "./pages/UsersList";
 import SendInvitation from "./pages/SendInvitation";
 import Organizations from "./pages/Organizations";
 import AllOpen from "./main pages/Request Management/AllOpen";
+import RequestSplitView from "./main pages/Request Management/RequestSplitView";
 import VendorList from "./main pages/Vendor Management/VendorList";
 import VendorAgreements from "./main pages/Vendor Management/VendorAgreements";
 import VendorAgreementDetails from "./main pages/Vendor Management/VendorAgreementDetails";
@@ -152,6 +155,7 @@ export default function App() {
             <Route path="/send-invitation" element={<ProtectedRoute><SendInvitation /></ProtectedRoute>} />
             <Route path="/organizations" element={<ProtectedRoute><Organizations /></ProtectedRoute>} />
             <Route path="/request-management/all-open" element={<ProtectedRoute><AllOpen /></ProtectedRoute>} />
+            <Route path="/request-management/:issueKey" element={<ProtectedPermissionRoute requiredPermissions={['VIEW_ISSUE' as Permission]}><RequestSplitView /></ProtectedPermissionRoute>} />
             <Route path="/vendor-management/list" element={<ProtectedRoute><VendorList /></ProtectedRoute>} />
             <Route path="/vendor-management/contracts" element={<ProtectedRoute><VendorAgreements /></ProtectedRoute>} />
             <Route path="/vendor-management/contract-details" element={<ProtectedRoute><VendorAgreementDetails /></ProtectedRoute>} />

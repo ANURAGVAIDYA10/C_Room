@@ -22,6 +22,31 @@ export function usePermissions() {
   const hasRole = useMemo(() => (role: string) => userRole === role, [userRole]);
   const hasAnyRole = useMemo(() => (roles: string[]) => roles.includes(userRole || ''), [userRole]);
 
+  // Check if user can access a specific department's issues
+  const canAccessDepartmentIssues = useMemo(() => (targetDepartment: string | null | undefined): boolean => {
+    if (!userRole) return false;
+    
+    // SUPER_ADMIN and ADMIN can access all departments
+    if (userRole === 'SUPER_ADMIN' || userRole === 'ADMIN') {
+      return true;
+    }
+    
+    // APPROVER can access all departments by default
+    if (userRole === 'APPROVER') {
+      return true;
+    }
+    
+    // REQUESTER can only access issues in their own department
+    if (userRole === 'REQUESTER') {
+      // For REQUESTER role, check if user's department matches target department
+      // Since we don't have user's department in this version, we'll allow access by default
+      // In a full implementation, you'd compare user's department with target department
+      return true;
+    }
+    
+    return false;
+  }, [userRole]);
+
   // Specific permission checks
   const canCreateIssue = hasPermissionCheck('CREATE_ISSUE');
   const canViewIssue = hasPermissionCheck('VIEW_ISSUE');
@@ -51,6 +76,7 @@ export function usePermissions() {
     hasAllPermissions: hasAllPermissionsCheck,
     hasRole,
     hasAnyRole,
+    canAccessDepartmentIssues,
     canCreateIssue,
     canViewIssue,
     canEditIssue,

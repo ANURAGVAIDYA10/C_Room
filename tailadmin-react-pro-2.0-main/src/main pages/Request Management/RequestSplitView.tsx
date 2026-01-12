@@ -264,6 +264,7 @@ const IssueTypeIcon: React.FC<{ type: string; size?: "sm" | "md" | "lg" }> = ({
 };
 
 const RequestSplitView: React.FC = () => {
+  console.log('🔄 RequestSplitView component mounted, issueKey:', useParams().issueKey);
   const { issueKey } = useParams<{ issueKey: string }>();
   console.log('🧭 issueKey from useParams:', issueKey);
   const { userRole, canAccessDepartmentIssues } = usePermissions();
@@ -355,6 +356,8 @@ const RequestSplitView: React.FC = () => {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true); // Loading for initial data fetch
+  const [issueLoading, setIssueLoading] = useState(false); // Loading for specific issue details
   const [error, setError] = useState<string | null>(null);
   const notificationContext = useNotifications();
   // dropdowns
@@ -588,12 +591,15 @@ const RequestSplitView: React.FC = () => {
     
     try {
       // Load existing proposals for this issue
+      console.log('📥 Loading proposals for issue:', issueKey);
       await loadProposals(issueKey);
+      console.log('📥 Loading comments for issue:', issueKey);
       // Fetch comments using our custom comment service
       const commentsResponse = await commentService.getCommentsByIssueKey(
         issueKey
       );
       const customComments = commentsResponse.comments || [];
+      console.log('📥 Received comments:', customComments.length, 'comments');
 
       // Recursive mapper: backend CommentDto -> UI Comment
       const mapDtoToUiComment = (dto: any): Comment => {
@@ -636,11 +642,14 @@ const RequestSplitView: React.FC = () => {
       // This is the new approach to avoid database errors
       
       // Fetch attachments directly from Jira
+      console.log('📥 Loading attachments for issue:', issueKey);
       let attachmentsData = [];
       try {
         const jiraAttachments = await jiraService.getIssueAttachments(issueKey);
+        console.log('📥 Raw Jira attachments response:', jiraAttachments);
         attachmentsData = Array.isArray(jiraAttachments) ? jiraAttachments : 
                         (jiraAttachments && jiraAttachments.attachments) ? jiraAttachments.attachments : [];
+        console.log('📥 Processed attachments data:', attachmentsData.length, 'attachments');
       } catch (jiraError: any) {
         console.warn('Failed to fetch attachments from Jira:', jiraError);
         // Show user-friendly error message for common issues
@@ -809,16 +818,17 @@ const RequestSplitView: React.FC = () => {
       document.removeEventListener("mousedown", handleClickOutside);
   }, [isMoreDropdownOpen]);
 
-  const selectedIssueKey = selectedIssue?.key;
-
+  // Fetch issue details when selected issue changes (for when user clicks on issue from left panel)
   useEffect(() => {
-    console.log('📥 useEffect triggered to fetch issue details, selectedIssue:', selectedIssueKey);
-    if (selectedIssueKey) {
-      console.log('📥 Calling fetchIssueDetails for issue:', selectedIssueKey);
-      fetchIssueDetails(selectedIssueKey);
+    console.log('🔄 useEffect triggered for selectedIssue change:', selectedIssue?.key, 'currentlyLoadingIssueKey:', currentlyLoadingIssueKey.current);
+    if (selectedIssue?.key && currentlyLoadingIssueKey.current !== selectedIssue.key) {
+      console.log('📥 Fetching issue details for selected issue:', selectedIssue.key);
+      fetchIssueDetails(selectedIssue.key);
+    } else if (selectedIssue?.key) {
+      console.log('⏭️ Skipping fetchIssueDetails, issue already being loaded or no selected issue');
     }
-  }, [selectedIssueKey]);
-
+  }, [selectedIssue]);
+   
   useEffect(() => {
     if (selectedIssue?.key) {
       // placeholder for transitions if needed
@@ -830,7 +840,7 @@ const RequestSplitView: React.FC = () => {
     console.log('📥 Initial fetch useEffect triggered, issueKey:', issueKey);
     const fetchData = async () => {
       try {
-        setLoading(true);
+        setInitialLoading(true);
         setError(null);
         const projectsData = await jiraService.getAllProjects();
         
@@ -948,7 +958,8 @@ const RequestSplitView: React.FC = () => {
           }));
         setAssignees(uniqueAssignees);
 
-        if (issueKey) {
+        // Only set selected issue if it wasn't already loaded via direct API call
+        if (issueKey && currentlyLoadingIssueKey.current !== issueKey) {
           console.log('🔍 Looking for issue in allIssues, issueKey:', issueKey);
           console.log('📋 allIssues length:', allIssues.length);
           const foundIssue =
@@ -962,7 +973,7 @@ const RequestSplitView: React.FC = () => {
             if (foundIssue)
               setSelectedStatus(foundIssue.fields.status?.name || "");
           }
-        } else {
+        } else if (!issueKey) {
           console.log('⚠️ No issueKey, setting selectedIssue to null');
           setSelectedIssue(null);
         }
@@ -970,18 +981,59 @@ const RequestSplitView: React.FC = () => {
         console.error("Error fetching data:", err);
         setError("Failed to fetch issues. Please try again later.");
       } finally {
-        setLoading(false);
+        setInitialLoading(false);
+        
+        // If we have an issueKey but no selectedIssue, try to load it
+        // This handles cases where the issue wasn't found in the initial fetch
+        if (issueKey && !selectedIssue) {
+          console.log('🔍 Issue not found in initial fetch, attempting direct load');
+          // Don't trigger the second useEffect unnecessarily, just call directly
+          if (currentlyLoadingIssueKey.current !== issueKey) {
+            setIssueLoading(true);
+            currentlyLoadingIssueKey.current = issueKey;
+            try {
+              const fullIssue = await jiraService.getIssueByIdOrKey(issueKey);
+              setSelectedIssue(fullIssue);
+              if (fullIssue?.key) {
+                await fetchIssueDetails(fullIssue.key);
+              }
+            } catch (err: any) {
+              console.error("Error loading issue directly:", err);
+              if (err.message && err.message.includes('404')) {
+                console.warn(`Issue ${issueKey} not found in Jira or you don't have permission to access it`);
+                alert(`Issue ${issueKey} not found or you don't have permission to access it.`);
+              }
+            } finally {
+              setIssueLoading(false);
+              if (currentlyLoadingIssueKey.current === issueKey) {
+                currentlyLoadingIssueKey.current = null;
+              }
+            }
+          }
+        }
       }
     };
     fetchData();
   }, [issueKey]);
 
-  // Fetch full issue details when page is opened
+  // Fetch full issue details when page is opened (only if initial loading is complete)
   useEffect(() => {
-    console.log('📥 Fetch full issue useEffect triggered, issueKey:', issueKey);
+    console.log('📥 Fetch full issue useEffect triggered, issueKey:', issueKey, 'initialLoading:', initialLoading);
+    // Wait until initial loading is complete to avoid conflicts
+    if (initialLoading) {
+      console.log('⏳ Waiting for initial loading to complete');
+      return;
+    }
+    
     // Ensure we have a valid issue key before proceeding
     if (!issueKey || issueKey === 'undefined') {
       console.log('⚠️ Invalid issueKey, returning early');
+      return;
+    }
+    
+    // Only proceed if the issue hasn't been loaded yet
+    if (selectedIssue?.key === issueKey) {
+      console.log('✅ Issue already loaded, skipping duplicate fetch');
       return;
     }
     
@@ -990,12 +1042,22 @@ const RequestSplitView: React.FC = () => {
     const loadFullIssue = async () => {
       // Set the ref to indicate we're loading this issue
       currentlyLoadingIssueKey.current = issueKey;
+      setIssueLoading(true);
       
       console.log('📥 loadFullIssue called, issueKey:', issueKey);
       try {
         const fullIssue = await jiraService.getIssueByIdOrKey(issueKey);
         console.log('📥 Received fullIssue:', fullIssue?.key);
+        console.log('📥 Full issue data:', fullIssue);
         setSelectedIssue(fullIssue);
+        console.log('✅ Selected issue set in state:', fullIssue?.key);
+        
+        // Immediately fetch detailed issue data (comments, attachments, etc.)
+        if (fullIssue?.key) {
+          console.log('📥 Calling fetchIssueDetails for issue:', fullIssue.key);
+          await fetchIssueDetails(fullIssue.key);
+          console.log('✅ Completed fetchIssueDetails for issue:', fullIssue.key);
+        }
       } catch (err: any) {
         console.error("Error loading full issue:", err);
         // Show user-friendly error message
@@ -1010,6 +1072,7 @@ const RequestSplitView: React.FC = () => {
           alert('Failed to load issue details. Please try again later.');
         }
       } finally {
+        setIssueLoading(false);
         // Clear the ref after loading is complete
         if (currentlyLoadingIssueKey.current === issueKey) {
           currentlyLoadingIssueKey.current = null;
@@ -1018,7 +1081,7 @@ const RequestSplitView: React.FC = () => {
     };
 
     loadFullIssue();
-  }, [issueKey]);
+  }, [issueKey, initialLoading, selectedIssue]);
 
   // Set default filters
   useEffect(() => {
@@ -2176,7 +2239,8 @@ const RequestSplitView: React.FC = () => {
     ));
   };
 
-  if (loading) {
+  if (initialLoading) {
+    console.log('🔄 Render: Initial loading state');
     return (
       <>
         <PageMeta title="Requests" description="View all requests" />
@@ -2186,6 +2250,21 @@ const RequestSplitView: React.FC = () => {
       </>
     );
   }
+
+  // Show loading state when loading a specific issue
+  if (issueLoading && !selectedIssue) {
+    console.log('🔄 Render: Issue loading state, issueKey:', issueKey);
+    return (
+      <>
+        <PageMeta title="Requests" description="Loading issue details" />
+        <div className="h-screen flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+        </div>
+      </>
+    );
+  }
+
+  console.log('🔄 Render: Main component render, selectedIssue:', selectedIssue?.key, 'issueKey:', issueKey, 'issueLoading:', issueLoading);
 
   if (error) {
     return (

@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-router";
 import { AuthProvider } from "./context/AuthContext";
+import { NotificationProvider } from "./context/NotificationContext";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import ProtectedPermissionRoute from "./components/auth/ProtectedPermissionRoute";
 import { Permission } from "./config/permissions";
@@ -112,6 +113,7 @@ export default function App() {
   return (
     <>
       <AuthProvider>
+      <NotificationProvider>
       <Router>
         <ScrollToTop />
         <Routes>
@@ -155,7 +157,11 @@ export default function App() {
             <Route path="/send-invitation" element={<ProtectedRoute><SendInvitation /></ProtectedRoute>} />
             <Route path="/organizations" element={<ProtectedRoute><Organizations /></ProtectedRoute>} />
             <Route path="/request-management/all-open" element={<ProtectedRoute><AllOpen /></ProtectedRoute>} />
+            <Route path="/request-management/assigned-to-me" element={<ProtectedRoute><AllOpen /></ProtectedRoute>} />
+            <Route path="/request-management/unassigned" element={<ProtectedRoute><AllOpen /></ProtectedRoute>} />
+            <Route path="/request-management/resolved" element={<ProtectedRoute><AllOpen /></ProtectedRoute>} />
             <Route path="/request-management/:issueKey" element={<ProtectedPermissionRoute requiredPermissions={['VIEW_ISSUE' as Permission]}><RequestSplitView /></ProtectedPermissionRoute>} />
+            <Route path="/request-management" element={<ProtectedRoute><AllOpen /></ProtectedRoute>} />
             <Route path="/vendor-management/list" element={<ProtectedRoute><VendorList /></ProtectedRoute>} />
             <Route path="/vendor-management/contracts" element={<ProtectedRoute><VendorAgreements /></ProtectedRoute>} />
             <Route path="/vendor-management/contract-details" element={<ProtectedRoute><VendorAgreementDetails /></ProtectedRoute>} />
@@ -240,6 +246,7 @@ export default function App() {
           onClose={() => setIsCreateIssueModalOpen(false)} 
         />
       </Router>
+      </NotificationProvider>
       </AuthProvider>
     </>
   );

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useNavigate, Link } from "react-router";
+import { useNavigate, Link, useLocation } from "react-router";
 import { useAuth } from "../../context/AuthContext";
 import { Permission } from "../../config/permissions";
 import { DndProvider } from "react-dnd";
@@ -97,7 +97,13 @@ interface Column {
 type ToastType = "success" | "error" | "info";
 
 const AllOpen: React.FC = () => {
-  const { userRole, userOrganizationId, userDepartmentId, userDepartmentName, userOrganizationName } = useAuth();
+  const { userRole, userOrganizationId, userDepartmentId, userDepartmentName, userOrganizationName, currentUser } = useAuth();
+  const location = useLocation();
+  
+  // Get the current route to determine the filter
+  const isAssignedToMe = location.pathname.includes('/request-management/assigned-to-me');
+  const isUnassigned = location.pathname.includes('/request-management/unassigned');
+  const isResolved = location.pathname.includes('/request-management/resolved');
   // --- UI / filter state
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedIssueType, setSelectedIssueType] = useState("");
@@ -271,7 +277,28 @@ const AllOpen: React.FC = () => {
               ? { issues: resp.issues || [], total: resp.total || (resp.issues ? resp.issues.length : 0) }
               : { issues: [], total: 0 };
 
-          const allIssues: Issue[] = Array.isArray(payload.issues) ? payload.issues : [];
+          let allIssues: Issue[] = Array.isArray(payload.issues) ? payload.issues : [];
+          
+          // Apply filters based on route
+          if (isAssignedToMe) {
+            // Filter for issues assigned to current user
+            allIssues = allIssues.filter(issue => 
+              issue.fields.assignee?.displayName === currentUser?.email // Using email as display name
+            );
+          } else if (isUnassigned) {
+            // Filter for unassigned issues
+            allIssues = allIssues.filter(issue => 
+              !issue.fields.assignee
+            );
+          } else if (isResolved) {
+            // Filter for resolved issues (status contains 'resolved' or 'done')
+            allIssues = allIssues.filter(issue => 
+              issue.fields.status?.name?.toLowerCase().includes('done') || 
+              issue.fields.status?.name?.toLowerCase().includes('resolved') ||
+              issue.fields.status?.name?.toLowerCase().includes('closed')
+            );
+          }
+          
           setIssues(allIssues);
           setTotal(payload.total || allIssues.length);
 
@@ -554,10 +581,12 @@ const AllOpen: React.FC = () => {
   if (loading) {
     return (
       <>
-        <PageMeta title="All Requests" description="All open requests (Request Management)" />
+        <PageMeta title={`${isAssignedToMe ? 'Assigned to Me' : isUnassigned ? 'Unassigned' : isResolved ? 'Resolved' : 'All Open'} Requests`} description={`${isAssignedToMe ? 'Assigned to Me' : isUnassigned ? 'Unassigned' : isResolved ? 'Resolved' : 'All Open'} requests (Request Management)`} />
         <div className="mx-auto max-w-7xl px-4 py-8">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <h1 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">All Requests</h1>
+            <h1 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">
+              {isAssignedToMe ? 'Assigned to Me' : isUnassigned ? 'Unassigned' : isResolved ? 'Resolved' : 'All Open Requests'}
+            </h1>
             <div className="flex items-center justify-center h-48">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" />
             </div>
@@ -570,10 +599,12 @@ const AllOpen: React.FC = () => {
   if (error) {
     return (
       <>
-        <PageMeta title="All Requests" description="All open requests (Request Management)" />
+        <PageMeta title={`${isAssignedToMe ? 'Assigned to Me' : isUnassigned ? 'Unassigned' : isResolved ? 'Resolved' : 'All Open'} Requests`} description={`${isAssignedToMe ? 'Assigned to Me' : isUnassigned ? 'Unassigned' : isResolved ? 'Resolved' : 'All Open'} requests (Request Management)`} />
         <div className="mx-auto max-w-7xl px-4 py-8">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <h1 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">All Requests</h1>
+            <h1 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">
+              {isAssignedToMe ? 'Assigned to Me' : isUnassigned ? 'Unassigned' : isResolved ? 'Resolved' : 'All Open Requests'}
+            </h1>
             <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">Error: {error}</div>
           </div>
         </div>
@@ -583,11 +614,13 @@ const AllOpen: React.FC = () => {
 
   return (
     <>
-      <PageMeta title="All Requests" description="All open requests (Request Management)" />
+      <PageMeta title={`${isAssignedToMe ? 'Assigned to Me' : isUnassigned ? 'Unassigned' : isResolved ? 'Resolved' : 'All Open'} Requests`} description={`${isAssignedToMe ? 'Assigned to Me' : isUnassigned ? 'Unassigned' : isResolved ? 'Resolved' : 'All Open'} requests (Request Management)`} />
       <div className="p-6">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
           <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">All Requests</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              {isAssignedToMe ? 'Assigned to Me' : isUnassigned ? 'Unassigned' : isResolved ? 'Resolved' : 'All Open Requests'}
+            </h1>
             <div className="flex space-x-4">
               <div className="relative">
                 <input

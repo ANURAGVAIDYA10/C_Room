@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useLocation } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 
 // Assume these icons are imported from an icon library
 import {
@@ -218,7 +218,50 @@ const AppSidebar: React.FC = () => {
     useSidebar();
   const { isAdmin, isSuperAdmin } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const sidebarRef = useRef<HTMLElement>(null);
+
+  // Search bar state
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [filteredNavItems, setFilteredNavItems] = useState<NavItem[]>(navItems);
+  const [filteredOthersItems, setFilteredOthersItems] = useState<NavItem[]>(othersItems);
+
+  // Filter items based on search term
+  useEffect(() => {
+    if (!searchTerm.trim()) {
+      setFilteredNavItems(navItems);
+      setFilteredOthersItems(othersItems);
+      return;
+    }
+
+    const filterItems = (items: NavItem[]): NavItem[] => {
+      return items.filter(item => {
+        if (item.name === "search-bar") return true; // Always show search bar
+
+        const nameMatch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
+        const subItemMatch = item.subItems?.some(subItem =>
+          subItem.name.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+
+        if (nameMatch) return true;
+
+        if (subItemMatch && item.subItems) {
+          // Return item with filtered subItems
+          return {
+            ...item,
+            subItems: item.subItems.filter(subItem =>
+              subItem.name.toLowerCase().includes(searchTerm.toLowerCase())
+            )
+          };
+        }
+
+        return false;
+      });
+    };
+
+    setFilteredNavItems(filterItems(navItems));
+    setFilteredOthersItems(filterItems(othersItems));
+  }, [searchTerm]);
   // Auto-close sidebar on mobile after route change
   useEffect(() => {
     if (isMobileOpen) {
@@ -323,7 +366,39 @@ const AppSidebar: React.FC = () => {
     <ul className="flex flex-col gap-1">
       {items.map((nav, index) => (
         <li key={nav.name}>
-          {nav.subItems ? (
+          {nav.name === "search-bar" ? (
+            // Special case: Render search bar instead of navigation item
+            <div className="menu-item group menu-item-inactive">
+              <div className="flex items-center flex-1">
+                <div className="menu-item-icon-size menu-item-icon-inactive">
+                  <svg className="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                {(isExpanded || isHovered || isMobileOpen) && (
+                  <div className="flex-1 ml-3">
+                    <input
+                      type="text"
+                      placeholder="Evaluate Tool"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          // Handle search submission
+                          if (searchTerm.trim()) {
+                            // Navigate to search results page
+                            navigate(`/search?q=${encodeURIComponent(searchTerm)}`);
+                          }
+                        }
+                      }}
+                      className="w-full px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : nav.subItems ? (
             <PrimaryDropdownButton
               onClick={() => handleSubmenuToggle(index, menuType)}
               isActive={openSubmenu?.type === menuType && openSubmenu?.index === index}
@@ -490,7 +565,7 @@ const AppSidebar: React.FC = () => {
                   <HorizontaLDots className="size-6" />
                 )}
               </h2>
-              {renderMenuItems(navItems, "main")}
+              {renderMenuItems(filteredNavItems, "main")}
             </div>
             <div>
               <h2
@@ -506,7 +581,7 @@ const AppSidebar: React.FC = () => {
                   <HorizontaLDots className="size-6" />
                 )}
               </h2>
-              {renderMenuItems(othersItems, "others")}
+              {renderMenuItems(filteredOthersItems, "others")}
             </div>
             
           </div>

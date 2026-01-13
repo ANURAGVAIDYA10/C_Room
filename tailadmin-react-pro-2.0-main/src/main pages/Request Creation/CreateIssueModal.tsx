@@ -169,18 +169,55 @@ const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
       setSuccessMessage('');
       setShowSuccess(false);
     }
-  }, [isOpen, userData, currentUser]); useEffect(() => {
+  }, [isOpen, userData, currentUser]);
+  
+  useEffect(() => {
     if (!isOpen) return;
     if (initialContractType) setContractType(initialContractType);
     else setContractType('');
-    if (initialContractType === 'existing' && initialExistingContractId) setSelectedExistingContractId(initialExistingContractId);
+    if (initialContractType === 'existing' && initialExistingContractId) {
+      // Don't set the selectedExistingContractId immediately
+      // Wait until contracts are loaded, then set it
+      if (existingContracts.length === 0) {
+        fetchExistingContracts();
+      } else {
+        // Contracts are already loaded, set the selected ID
+        setSelectedExistingContractId(initialExistingContractId);
+      }
+    }
     else if (!initialExistingContractId) setSelectedExistingContractId('');
-  }, [isOpen, initialContractType, initialExistingContractId]);
+  }, [isOpen, initialContractType, initialExistingContractId, existingContracts.length]);
 
   useEffect(() => {
-    if (isOpen && contractType === 'existing') fetchExistingContracts();
+    if (isOpen && contractType === 'existing') {
+      fetchExistingContracts();
+    }
+    // Also fetch if we have an initial existing contract ID but no contracts loaded yet
+    else if (isOpen && initialContractType === 'existing' && initialExistingContractId && existingContracts.length === 0) {
+      fetchExistingContracts();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, contractType]);
+  }, [isOpen, contractType, initialContractType, initialExistingContractId, existingContracts.length]);
+  
+  // Effect to set selected contract ID after contracts are loaded when initial ID is provided
+  useEffect(() => {
+    if (isOpen && initialContractType === 'existing' && initialExistingContractId && 
+        existingContracts.length > 0 && !selectedExistingContractId) {
+      // Set the selected contract ID after contracts are loaded
+      setSelectedExistingContractId(initialExistingContractId);
+    }
+  }, [isOpen, initialContractType, initialExistingContractId, existingContracts.length, selectedExistingContractId]);
+  
+  // Effect to populate form when existing contracts are loaded and initial contract ID is set
+  useEffect(() => {
+    if (isOpen && initialContractType === 'existing' && initialExistingContractId && existingContracts.length > 0) {
+      // Find the contract with the initial ID and populate the form
+      const contract = existingContracts.find(c => c.id === initialExistingContractId);
+      if (contract) {
+        setSelectedExistingContractId(initialExistingContractId);
+      }
+    }
+  }, [isOpen, initialContractType, initialExistingContractId, existingContracts.length]);
 
   const fetchExistingContracts = async () => {
     try {

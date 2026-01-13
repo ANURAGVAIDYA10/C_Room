@@ -7,7 +7,7 @@ import { HTML5Backend } from "react-dnd-html5-backend";
 import { useDrag, useDrop } from "react-dnd";
 import PageMeta from "../../components/common/PageMeta";
 import { jiraService } from "../../services/jiraService";
-import EditIssueModal from "./EditIssueModal";
+import EditIssueModal from "../../main pages/Request Management/EditIssueModal";
 import { Table, TableHeader, TableBody, TableRow, TableCell } from "../../components/ui/table";
 
 interface Project {
@@ -41,36 +41,15 @@ interface Issue {
   fields: {
     summary?: string;
     project?: {
-      key: string;
+      name?: string;
+      key?: string;
     };
-    description?: string;
-    duedate?: string;
-    issuetype?: {
-      name: string;
-    };
-    customfield_10200?: string;
-    // Procurement request fields
-    customfield_10290?: string; // Vendor Name
-    customfield_10291?: string; // Product Name
-    customfield_10292?: string; // Billing Type
-    customfield_10293?: string; // Current License Count
-    customfield_10294?: string; // Current Usage Count
-    customfield_10295?: string; // Current Units
-    customfield_10296?: string; // New License Count
-    customfield_10297?: string; // New Usage Count
-    customfield_10298?: string; // New Units
-    customfield_10243?: string; // Requester Name
-    customfield_10246?: string; // Requester Email
-    customfield_10244?: string; // Department
-    customfield_10299?: string; // Contract Type
-    customfield_10300?: string; // License Update Type
-    customfield_10301?: string; // Existing Contract ID
-    customfield_10302?: string; // Due Date
-    customfield_10303?: string; // Renewal Date
-    customfield_10304?: string; // Additional Comments
     assignee?: {
       displayName?: string;
     } | null;
+    issuetype?: {
+      name?: string;
+    };
     status?: {
       name?: string;
     };
@@ -251,7 +230,7 @@ const AllOpen: React.FC = () => {
         // issue types - filter to show only Procurement Request
         try {
           const types = await jiraService.getIssueTypes();
-          const procurementTypes = types?.filter((type: any) => type.name === "Procurement Request") || [];
+          const procurementTypes = types?.filter(type => type.name === "Procurement Request") || [];
           setIssueTypes(procurementTypes);
         } catch (err) {
           console.warn("Failed fetch issue types", err);
@@ -268,7 +247,7 @@ const AllOpen: React.FC = () => {
         // issues
         try {
           console.log("Calling getAllIssues with:", { userRole, userOrganizationId, userDepartmentId });
-          const resp = await jiraService.getAllIssues(userRole, userOrganizationId, userDepartmentId);
+          const resp = await jiraService.getAllIssues(userRole, userOrganizationId, userDepartmentId, page, pageSize);
           console.log("Received response from getAllIssues:", resp);
           
           const payload = Array.isArray(resp)
@@ -383,7 +362,7 @@ const AllOpen: React.FC = () => {
     const ref = React.useRef<HTMLDivElement | null>(null);
     const { hasPermission } = useAuth();
     
-    const canEditOrDelete = hasPermission('EDIT_ISSUE' as Permission) && hasPermission('DELETE_ISSUE' as Permission);
+    const canEditOrDelete = hasPermission(Permission.EDIT_ISSUE) && hasPermission(Permission.DELETE_ISSUE);
 
     useEffect(() => {
       const handler = (e: MouseEvent) => {
@@ -409,7 +388,8 @@ const AllOpen: React.FC = () => {
             // refresh with user context
             const resp = await jiraService.getAllIssues(userRole, userOrganizationId, userDepartmentId);
             const allIssues: Issue[] = Array.isArray(resp) ? resp : (resp && Array.isArray(resp.issues) ? resp.issues : []);
-            setIssues(allIssues);
+            const filtered = allIssues.filter(i => i.fields?.project?.name === "Request Management");
+            setIssues(filtered);
             showToast('Request Deleted', 'success');
           } catch (err) {
             showToast('Delete failed', 'error');
@@ -705,7 +685,7 @@ const AllOpen: React.FC = () => {
           <div className="mt-3 text-sm text-gray-500">Showing {filteredIssues.length} of {issues.length} requests</div>
 
           {/* Modals */}
-          {selectedIssue && <EditIssueModal isOpen={isEditModalOpen} onClose={() => { setIsEditModalOpen(false); setSelectedIssue(null); }} onSubmit={async (key: string, data) => { await jiraService.updateIssue(key, data); /* Refresh simplified */ }} issue={selectedIssue} />}
+          {selectedIssue && <EditIssueModal isOpen={isEditModalOpen} onClose={() => { setIsEditModalOpen(false); setSelectedIssue(null); }} onSubmit={async (key, data) => { await jiraService.updateIssue(key, data); /* Refresh simplified */ }} issue ={selectedIssue} />}
 
         </div>
 

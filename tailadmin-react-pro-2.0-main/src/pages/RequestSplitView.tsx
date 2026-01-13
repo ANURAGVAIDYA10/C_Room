@@ -1,17 +1,16 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router";
-import PageMeta from "../../components/common/PageMeta";
-import { jiraService, IssueTransition } from "../../services/jiraService";
-import { CustomFilterDropdown } from "../../components/filters/CustomFilterDropdown";
-import { usePermissions } from "../../hooks/usePermissions";
-import EditIssueModal from "../../main pages/Request Management/EditIssueModal";
-import { useNotifications } from "../../context/NotificationContext";
-import { useAuth } from "../../context/AuthContext";
-import { commentService } from "../../services/commentService";
-import AttachmentPreview from "../../components/attachment/AttachmentPreview";
-import { API_ENDPOINTS, getApiUrl } from "../../config/apiConfig";
-import { apiCall } from "../../services/api";
-import Notification from "../../components/ui/notification/Notfication";
+import PageMeta from "../components/common/PageMeta";
+import { jiraService, IssueTransition } from "../services/jiraService";
+import { CustomFilterDropdown } from "../components/filters/CustomFilterDropdown";
+import { usePermissions } from "../hooks/usePermissions";
+import EditIssueModal from "../main pages/Request Management/EditIssueModal";
+import { useNotifications } from "../context/NotificationContext";
+import { useAuth } from "../context/AuthContext";
+import { commentService } from "../services/commentService";
+import AttachmentPreview from "../components/AttachmentPreview";
+import { API_ENDPOINTS, getApiUrl } from "../config/apiConfig";
+import SuccessToast2 from "../components/ui/toast/SuccessToast2";
 
 // Define minimal ADF interfaces (enough for description rendering)
 interface AdfNode {
@@ -264,7 +263,6 @@ const IssueTypeIcon: React.FC<{ type: string; size?: "sm" | "md" | "lg" }> = ({
 };
 
 const RequestSplitView: React.FC = () => {
-  console.log('🔄 RequestSplitView component mounted, issueKey:', useParams().issueKey);
   const { issueKey } = useParams<{ issueKey: string }>();
   console.log('🧭 issueKey from useParams:', issueKey);
   const { userRole, canAccessDepartmentIssues } = usePermissions();
@@ -356,8 +354,6 @@ const RequestSplitView: React.FC = () => {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   const [loading, setLoading] = useState(true);
-  const [initialLoading, setInitialLoading] = useState(true); // Loading for initial data fetch
-  const [issueLoading, setIssueLoading] = useState(false); // Loading for specific issue details
   const [error, setError] = useState<string | null>(null);
   const notificationContext = useNotifications();
   // dropdowns
@@ -448,9 +444,6 @@ const RequestSplitView: React.FC = () => {
   const [leftPanelWidth, setLeftPanelWidth] = useState(30);
   const [isResizing, setIsResizing] = useState(false);
   const splitViewRef = useRef<HTMLDivElement>(null);
-  
-  // Ref to track the issue currently being loaded via direct API call
-  const currentlyLoadingIssueKey = useRef<string | null>(null);
 
   const isInNegotiationStage =
     selectedIssue?.fields?.status?.name === "Negotiation Stage";
@@ -591,15 +584,12 @@ const RequestSplitView: React.FC = () => {
     
     try {
       // Load existing proposals for this issue
-      console.log('📥 Loading proposals for issue:', issueKey);
       await loadProposals(issueKey);
-      console.log('📥 Loading comments for issue:', issueKey);
       // Fetch comments using our custom comment service
       const commentsResponse = await commentService.getCommentsByIssueKey(
         issueKey
       );
       const customComments = commentsResponse.comments || [];
-      console.log('📥 Received comments:', customComments.length, 'comments');
 
       // Recursive mapper: backend CommentDto -> UI Comment
       const mapDtoToUiComment = (dto: any): Comment => {
@@ -642,14 +632,11 @@ const RequestSplitView: React.FC = () => {
       // This is the new approach to avoid database errors
       
       // Fetch attachments directly from Jira
-      console.log('📥 Loading attachments for issue:', issueKey);
       let attachmentsData = [];
       try {
         const jiraAttachments = await jiraService.getIssueAttachments(issueKey);
-        console.log('📥 Raw Jira attachments response:', jiraAttachments);
         attachmentsData = Array.isArray(jiraAttachments) ? jiraAttachments : 
                         (jiraAttachments && jiraAttachments.attachments) ? jiraAttachments.attachments : [];
-        console.log('📥 Processed attachments data:', attachmentsData.length, 'attachments');
       } catch (jiraError: any) {
         console.warn('Failed to fetch attachments from Jira:', jiraError);
         // Show user-friendly error message for common issues
@@ -679,7 +666,7 @@ const RequestSplitView: React.FC = () => {
             fileName: attachment.fileName || attachment.filename,
             // Use Jira's content URL for fileUrl to enable direct preview
             fileUrl: attachment.content || attachment.fileUrl || 
-                     (attachment.id ? `/api/jira/attachment/content/${attachment.id}` : ""),
+                     (attachment.id ? `${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/jira/attachment/content/${attachment.id}` : ""),
             fileSize: attachment.fileSize || attachment.size,
             uploadedBy: attachment.uploadedBy || "Unknown",
             stage: attachment.stage || "Unknown",
@@ -723,7 +710,13 @@ const RequestSplitView: React.FC = () => {
   // Fetch proposal details for preview modal
   const handlePreviewProposal = async (proposalId: number) => {
     try {
-      const data = await apiCall(`/api/jira/proposals/${proposalId}`);
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/jira/proposals/${proposalId}`
+      );
+
+      if (!res.ok) throw new Error("Failed to load proposal");
+
+      const data = await res.json();
       setPreviewProposal(data);
     } catch (err) {
       console.error("Preview load error:", err);
@@ -735,7 +728,14 @@ const RequestSplitView: React.FC = () => {
     console.log('📥 loadProposals called for issue:', issueKey);
     try {
       setIsLoadingProposals(true);
-      const data: ContractProposalDto[] = await apiCall(`/api/jira/proposals/issue/${issueKey}`);
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/jira/proposals/issue/${issueKey}`
+      );
+
+      if (!res.ok) {
+        throw new Error("Failed to load proposals");
+      }
+      const data: ContractProposalDto[] = await res.json();
       console.log('📥 Loaded proposals for issue:', issueKey, data);
       setProposals(data || []);
 
@@ -818,17 +818,16 @@ const RequestSplitView: React.FC = () => {
       document.removeEventListener("mousedown", handleClickOutside);
   }, [isMoreDropdownOpen]);
 
-  // Fetch issue details when selected issue changes (for when user clicks on issue from left panel)
+  const selectedIssueKey = selectedIssue?.key;
+
   useEffect(() => {
-    console.log('🔄 useEffect triggered for selectedIssue change:', selectedIssue?.key, 'currentlyLoadingIssueKey:', currentlyLoadingIssueKey.current);
-    if (selectedIssue?.key && currentlyLoadingIssueKey.current !== selectedIssue.key) {
-      console.log('📥 Fetching issue details for selected issue:', selectedIssue.key);
-      fetchIssueDetails(selectedIssue.key);
-    } else if (selectedIssue?.key) {
-      console.log('⏭️ Skipping fetchIssueDetails, issue already being loaded or no selected issue');
+    console.log('📥 useEffect triggered to fetch issue details, selectedIssue:', selectedIssueKey);
+    if (selectedIssueKey) {
+      console.log('📥 Calling fetchIssueDetails for issue:', selectedIssueKey);
+      fetchIssueDetails(selectedIssueKey);
     }
-  }, [selectedIssue]);
-   
+  }, [selectedIssueKey]);
+
   useEffect(() => {
     if (selectedIssue?.key) {
       // placeholder for transitions if needed
@@ -840,7 +839,7 @@ const RequestSplitView: React.FC = () => {
     console.log('📥 Initial fetch useEffect triggered, issueKey:', issueKey);
     const fetchData = async () => {
       try {
-        setInitialLoading(true);
+        setLoading(true);
         setError(null);
         const projectsData = await jiraService.getAllProjects();
         
@@ -958,24 +957,16 @@ const RequestSplitView: React.FC = () => {
           }));
         setAssignees(uniqueAssignees);
 
-        // Only set selected issue if it wasn't already loaded via direct API call
-        if (issueKey && currentlyLoadingIssueKey.current !== issueKey) {
+        if (issueKey) {
           console.log('🔍 Looking for issue in allIssues, issueKey:', issueKey);
           console.log('📋 allIssues length:', allIssues.length);
           const foundIssue =
             allIssues.find((issue) => issue.key === issueKey) || null;
           console.log('🔍 Found issue:', foundIssue);
-          
-          // Only update selectedIssue if we're not currently loading this issue via direct API call
-          // AND if we don't already have the correct issue selected
-          // This prevents overwriting an issue that was already loaded via direct API call
-          // or set via handleIssueClick
-          if (currentlyLoadingIssueKey.current !== issueKey && (!selectedIssue || selectedIssue.key !== issueKey)) {
-            setSelectedIssue(foundIssue);
-            if (foundIssue)
-              setSelectedStatus(foundIssue.fields.status?.name || "");
-          }
-        } else if (!issueKey) {
+          setSelectedIssue(foundIssue);
+          if (foundIssue)
+            setSelectedStatus(foundIssue.fields.status?.name || "");
+        } else {
           console.log('⚠️ No issueKey, setting selectedIssue to null');
           setSelectedIssue(null);
         }
@@ -983,83 +974,29 @@ const RequestSplitView: React.FC = () => {
         console.error("Error fetching data:", err);
         setError("Failed to fetch issues. Please try again later.");
       } finally {
-        setInitialLoading(false);
-        
-        // If we have an issueKey but no selectedIssue, try to load it
-        // This handles cases where the issue wasn't found in the initial fetch
-        if (issueKey && !selectedIssue) {
-          console.log('🔍 Issue not found in initial fetch, attempting direct load');
-          // Don't trigger the second useEffect unnecessarily, just call directly
-          if (currentlyLoadingIssueKey.current !== issueKey) {
-            setIssueLoading(true);
-            currentlyLoadingIssueKey.current = issueKey;
-            try {
-              const fullIssue = await jiraService.getIssueByIdOrKey(issueKey);
-              setSelectedIssue(fullIssue);
-              if (fullIssue?.key) {
-                await fetchIssueDetails(fullIssue.key);
-              }
-            } catch (err: any) {
-              console.error("Error loading issue directly:", err);
-              if (err.message && err.message.includes('404')) {
-                console.warn(`Issue ${issueKey} not found in Jira or you don't have permission to access it`);
-                alert(`Issue ${issueKey} not found or you don't have permission to access it.`);
-              }
-            } finally {
-              setIssueLoading(false);
-              if (currentlyLoadingIssueKey.current === issueKey) {
-                currentlyLoadingIssueKey.current = null;
-              }
-            }
-          }
-        }
+        setLoading(false);
       }
     };
     fetchData();
   }, [issueKey]);
 
-  // Fetch full issue details when page is opened (only if initial loading is complete)
+  // Fetch full issue details when page is opened
   useEffect(() => {
-    console.log('📥 Fetch full issue useEffect triggered, issueKey:', issueKey, 'initialLoading:', initialLoading);
-    // Wait until initial loading is complete to avoid conflicts
-    if (initialLoading) {
-      console.log('⏳ Waiting for initial loading to complete');
-      return;
-    }
-    
+    console.log('📥 Fetch full issue useEffect triggered, issueKey:', issueKey);
     // Ensure we have a valid issue key before proceeding
     if (!issueKey || issueKey === 'undefined') {
       console.log('⚠️ Invalid issueKey, returning early');
       return;
     }
     
-    // Only proceed if the issue hasn't been loaded yet
-    if (selectedIssue?.key === issueKey) {
-      console.log('✅ Issue already loaded, skipping duplicate fetch');
-      return;
-    }
-    
     console.log('📥 About to call loadFullIssue, issueKey:', issueKey);
 
     const loadFullIssue = async () => {
-      // Set the ref to indicate we're loading this issue
-      currentlyLoadingIssueKey.current = issueKey;
-      setIssueLoading(true);
-      
       console.log('📥 loadFullIssue called, issueKey:', issueKey);
       try {
         const fullIssue = await jiraService.getIssueByIdOrKey(issueKey);
         console.log('📥 Received fullIssue:', fullIssue?.key);
-        console.log('📥 Full issue data:', fullIssue);
         setSelectedIssue(fullIssue);
-        console.log('✅ Selected issue set in state:', fullIssue?.key);
-        
-        // Immediately fetch detailed issue data (comments, attachments, etc.)
-        if (fullIssue?.key) {
-          console.log('📥 Calling fetchIssueDetails for issue:', fullIssue.key);
-          await fetchIssueDetails(fullIssue.key);
-          console.log('✅ Completed fetchIssueDetails for issue:', fullIssue.key);
-        }
       } catch (err: any) {
         console.error("Error loading full issue:", err);
         // Show user-friendly error message
@@ -1073,17 +1010,11 @@ const RequestSplitView: React.FC = () => {
         } else {
           alert('Failed to load issue details. Please try again later.');
         }
-      } finally {
-        setIssueLoading(false);
-        // Clear the ref after loading is complete
-        if (currentlyLoadingIssueKey.current === issueKey) {
-          currentlyLoadingIssueKey.current = null;
-        }
       }
     };
 
     loadFullIssue();
-  }, [issueKey, initialLoading, selectedIssue]);
+  }, [issueKey]);
 
   // Set default filters
   useEffect(() => {
@@ -1350,16 +1281,6 @@ const RequestSplitView: React.FC = () => {
         };
         setActivities((prev) => [activity, ...prev]);
         setNewComment("");
-        
-        // Show success notification
-        setToastMessage("Comment added successfully!");
-        setToastType("success");
-        setShowToast(true);
-        
-        // Auto-hide toast after 3 seconds
-        setTimeout(() => {
-          setShowToast(false);
-        }, 3000);
       } catch (err) {
         console.error("Error adding comment:", err);
         alert("Failed to add comment. Please try again.");
@@ -1788,7 +1709,7 @@ const RequestSplitView: React.FC = () => {
 
       await Promise.all(
         uploadedAttachments.map((att) =>
-          apiCall(`/api/jira/contracts/save-attachment`,
+          fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/jira/contracts/save-attachment`,
             {
             method: "POST",            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -1864,17 +1785,31 @@ const RequestSplitView: React.FC = () => {
           };
           console.log('Sending update-license-count request with payload:', payload);
           
-          try {
-            await apiCall(`/api/jira/contracts/update-license-count`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
+          const response = await fetch(
+            `${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/jira/contracts/update-license-count`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            }
+          );
+          
+          if (!response.ok) {
+            // Try to get error details from response
+            let errorDetails = '';
+            try {
+              const errorData = await response.json();
+              errorDetails = JSON.stringify(errorData, null, 2);
+            } catch (parseError) {
+              try {
+                const text = await response.text();
+                errorDetails = text || `${response.status} ${response.statusText}`;
+              } catch (textError) {
+                errorDetails = `${response.status} ${response.statusText}`;
               }
-            );
-          } catch (error) {
-            console.warn('Failed to update license count:', error);
-            alert(`Failed to update license count. Please check the console for details.`);
+            }
+            console.warn('Failed to update license count: Server returned', response.status, response.statusText, 'Details:', errorDetails);
+            alert(`Failed to update license count: ${response.status} ${response.statusText}. Please check the console for details.`);
           }
         } catch (error) {
           console.warn('Failed to update license count:', error);
@@ -1892,16 +1827,6 @@ const RequestSplitView: React.FC = () => {
       setQuoteAttachments([]);
       setCurrentProposal("first");
       setIsUploadQuoteModalOpen(false);
-      
-      // Show success notification
-      setToastMessage("Proposal submitted successfully!");
-      setToastType("success");
-      setShowToast(true);
-      
-      // Auto-hide toast after 3 seconds
-      setTimeout(() => {
-        setShowToast(false);
-      }, 3000);
     } catch (error) {
       console.error("Error submitting quote:", error);
       alert("Failed to submit proposal. Please try again.");
@@ -1926,13 +1851,17 @@ const RequestSplitView: React.FC = () => {
       
       // Trigger final submission process
       console.log('📡 Sending final-submit request for issue:', issueKey);
-      await apiCall(`/api/jira/contracts/final-submit/${issueKey}`,
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/jira/contracts/final-submit/${issueKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
         }
       );
-      console.log('📡 Final-submit completed successfully');
+            console.log('📡 Final-submit response status:', response.status);
+      if (!response.ok) {
+        throw new Error("Failed to finalize submission");
+      }
 
       // Set hasSubmittedFinalQuote to true immediately after successful submission
       console.log('🔧 Setting hasSubmittedFinalQuote to true in handleFinalSubmit');
@@ -1947,25 +1876,18 @@ const RequestSplitView: React.FC = () => {
       // Try to fetch profit data after successful final submission
       try {
         console.log('📡 Fetching profit data for issue:', issueKey);
-        const profitData = await apiCall(`/api/jira/contracts/profit/${issueKey}`);
-        console.log('📡 Profit data received:', profitData);
-        if (profitData) {
+        const profitResponse = await fetch(
+          `${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/jira/contracts/profit/${issueKey}`
+        );
+        console.log('📡 Profit data response status:', profitResponse.status);
+        if (profitResponse.ok) {
+          const profitData = await profitResponse.json();
           setTotalProfit(profitData.totalProfit);
           // Backend confirmation is not needed since we already set it to true above
         }
       } catch (profitError) {
         console.warn('Failed to fetch profit data after final submission:', profitError);
       }
-      
-      // Show success notification
-      setToastMessage("Final submission completed successfully!");
-      setToastType("success");
-      setShowToast(true);
-      
-      // Auto-hide toast after 3 seconds
-      setTimeout(() => {
-        setShowToast(false);
-      }, 3000);
       
       // Close the modal
       setIsUploadQuoteModalOpen(false);
@@ -2241,8 +2163,7 @@ const RequestSplitView: React.FC = () => {
     ));
   };
 
-  if (initialLoading) {
-    console.log('🔄 Render: Initial loading state');
+  if (loading) {
     return (
       <>
         <PageMeta title="Requests" description="View all requests" />
@@ -2252,21 +2173,6 @@ const RequestSplitView: React.FC = () => {
       </>
     );
   }
-
-  // Show loading state when loading a specific issue
-  if (issueLoading && !selectedIssue) {
-    console.log('🔄 Render: Issue loading state, issueKey:', issueKey);
-    return (
-      <>
-        <PageMeta title="Requests" description="Loading issue details" />
-        <div className="h-screen flex items-center justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-        </div>
-      </>
-    );
-  }
-
-  console.log('🔄 Render: Main component render, selectedIssue:', selectedIssue?.key, 'issueKey:', issueKey, 'issueLoading:', issueLoading);
 
   if (error) {
     return (
@@ -2290,15 +2196,13 @@ const RequestSplitView: React.FC = () => {
         }
         description="View all Requests"
       />
-      {/* Show notification if needed */}
+      {/* Show toast if needed */}
       {showToast && (
-        <div className="fixed top-4 right-4 z-[9999]">
-          <Notification 
-            variant={toastType}
-            title={toastMessage}
-            hideDuration={3000}
-          />
-        </div>
+        <SuccessToast2 
+          message={toastMessage} 
+          type={toastType}
+          onClose={() => setShowToast(false)} 
+        />
       )}
       <div className="flex flex-col h-screen overflow-hidden">
         <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4">
@@ -2520,9 +2424,9 @@ const RequestSplitView: React.FC = () => {
                             <span className="text-sm text-gray-500 dark:text-gray-400">
                               /
                             </span>
-                            <span className="text-sm text-gray-900 dark:text-white">
+                            <Link to={`/request-management/${selectedIssue.key}`} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
                               {selectedIssue.key}
-                            </span>
+                            </Link>
                           </div>
                           <h1 className="text-3xl font-semibold text-gray-900 dark:text-white break-words">
                             {selectedIssue.fields.summary}
@@ -3459,7 +3363,7 @@ const RequestSplitView: React.FC = () => {
       )}
       {/* UPLOAD QUOTE MODAL */}
       {isUploadQuoteModalOpen && (
-        <div className="fixed inset-0 bg-[rgba(0,0,0,0.1)] flex items-center justify-center z-[99999] p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[99999] p-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">

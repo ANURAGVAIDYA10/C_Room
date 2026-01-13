@@ -1,10 +1,11 @@
 import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-router";
 import { AuthProvider } from "./context/AuthContext";
+import { NotificationProvider } from "./context/NotificationContext";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import ProtectedPermissionRoute from "./components/auth/ProtectedPermissionRoute";
 import { Permission } from "./config/permissions";
 import CreateIssueModal from "./main pages/Request Creation/CreateIssueModal";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Ecommerce from "./pages/Dashboard/Ecommerce";
 import Stocks from "./pages/Dashboard/Stocks";
 import Crm from "./pages/Dashboard/Crm";
@@ -26,7 +27,7 @@ import Pagination from "./pages/UiElements/Pagination";
 import Avatars from "./pages/UiElements/Avatars";
 import Buttons from "./pages/UiElements/Buttons";
 import ButtonsGroup from "./pages/UiElements/ButtonsGroup";
-import Notifications from "./pages/UiElements/Notifications";
+// import Notifications from "./pages/UiElements/Notifications";
 import LineChart from "./pages/Charts/LineChart";
 import BarChart from "./pages/Charts/BarChart";
 import PieChart from "./pages/Charts/PieChart";
@@ -95,6 +96,7 @@ import ProcurementRenewal from "./main pages/Procurement Request/procurement-ren
 
 export default function App() {
   const [isCreateIssueModalOpen, setIsCreateIssueModalOpen] = useState(false);
+  const initialExistingContractIdRef = useRef<string | null>(null);
   
   // Listen for the custom event to open the modal
   useEffect(() => {
@@ -109,10 +111,31 @@ export default function App() {
     };
   }, []);
   
+  // Listen for the custom event from procurement renewal page to open the modal
+  useEffect(() => {
+    const handleOpenCreateModal = (event: CustomEvent) => {
+      // Set initial contract type to 'existing' and pass the existing contract ID
+      const existingContractId = event.detail?.existingContractId || null;
+      if (existingContractId) {
+        // We'll need to pass this to the modal, but we'll handle it by storing in a ref
+        // and using it when the modal opens
+        initialExistingContractIdRef.current = existingContractId;
+      }
+      setIsCreateIssueModalOpen(true);
+    };
+    
+    window.addEventListener('openCreateModal', handleOpenCreateModal as EventListener);
+    
+    return () => {
+      window.removeEventListener('openCreateModal', handleOpenCreateModal as EventListener);
+    };
+  }, []);
+  
   return (
     <>
       <AuthProvider>
-      <Router>
+        <NotificationProvider>
+          <Router>
         <ScrollToTop />
         <Routes>
           {/* Dashboard Layout */}
@@ -155,7 +178,7 @@ export default function App() {
             <Route path="/send-invitation" element={<ProtectedRoute><SendInvitation /></ProtectedRoute>} />
             <Route path="/organizations" element={<ProtectedRoute><Organizations /></ProtectedRoute>} />
             <Route path="/request-management/all-open" element={<ProtectedRoute><AllOpen /></ProtectedRoute>} />
-            <Route path="/request-management/:issueKey" element={<ProtectedPermissionRoute requiredPermissions={['VIEW_ISSUE' as Permission]}><RequestSplitView /></ProtectedPermissionRoute>} />
+            <Route path="/request-management/:issueKey" element={<ProtectedRoute><RequestSplitView /></ProtectedRoute>} />
             <Route path="/vendor-management/list" element={<ProtectedRoute><VendorList /></ProtectedRoute>} />
             <Route path="/vendor-management/contracts" element={<ProtectedRoute><VendorAgreements /></ProtectedRoute>} />
             <Route path="/vendor-management/contract-details" element={<ProtectedRoute><VendorAgreementDetails /></ProtectedRoute>} />
@@ -193,7 +216,7 @@ export default function App() {
             <Route path="/links" element={<ProtectedRoute><Links /></ProtectedRoute>} />
             <Route path="/list" element={<ProtectedRoute><Lists /></ProtectedRoute>} />
             <Route path="/modals" element={<ProtectedRoute><Modals /></ProtectedRoute>} />
-            <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
+            {/* <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} /> */}
             <Route path="/pagination" element={<ProtectedRoute><Pagination /></ProtectedRoute>} />
             <Route path="/popovers" element={<ProtectedRoute><Popovers /></ProtectedRoute>} />
             <Route path="/progress-bar" element={<ProtectedRoute><Progressbar /></ProtectedRoute>} />
@@ -235,11 +258,18 @@ export default function App() {
           <Route path="/five-zero-three" element={<FiveZeroThree />} />
           <Route path="/coming-soon" element={<ComingSoon />} />
         </Routes>
-        <CreateIssueModal 
-          isOpen={isCreateIssueModalOpen} 
-          onClose={() => setIsCreateIssueModalOpen(false)} 
+        <CreateIssueModal
+          isOpen={isCreateIssueModalOpen}
+          onClose={() => {
+            setIsCreateIssueModalOpen(false);
+            // Reset the ref after closing
+            initialExistingContractIdRef.current = null;
+          }}
+          initialContractType={initialExistingContractIdRef.current ? 'existing' : undefined}
+          initialExistingContractId={initialExistingContractIdRef.current || undefined}
         />
-      </Router>
+          </Router>
+        </NotificationProvider>
       </AuthProvider>
     </>
   );

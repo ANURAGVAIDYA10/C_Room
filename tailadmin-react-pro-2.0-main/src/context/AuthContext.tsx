@@ -77,11 +77,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (currentUser?.uid) {
       try {
         console.log('AuthContext: Refreshing user data for uid=', currentUser.uid);
-        // In a real implementation, you would fetch user data from your backend
-        // For now, we'll just set some default values
-        // This will need to be implemented based on your backend API
+        
+        // Import the apiCall function to get user data from backend
+        const { apiCall } = await import('../services/api');
+        
+        const userData = await apiCall(`/api/auth/role/${currentUser.uid}`);
+        console.log('AuthContext: User data received=', userData);
+        
+        // Set user data from backend
+        setUserData(userData.user || userData);
+        setUserRole(userData.role || (userData.user && userData.user.role));
+        setUserDepartmentId((userData.department || (userData.user && userData.user.department))?.id || null);
+        setUserDepartmentName((userData.department || (userData.user && userData.user.department))?.name || null);
+        setUserOrganizationId((userData.organization || (userData.user && userData.user.organization))?.id || null);
+        setUserOrganizationName((userData.organization || (userData.user && userData.user.organization))?.name || null);
+        setIsAdmin((userData.role || (userData.user && userData.user.role)) === 'ADMIN' || (userData.role || (userData.user && userData.user.role)) === 'SUPER_ADMIN');
+        setIsSuperAdmin((userData.role || (userData.user && userData.user.role)) === 'SUPER_ADMIN');
+        setIsApprover((userData.role || (userData.user && userData.user.role)) === 'APPROVER');
+        setIsRequester((userData.role || (userData.user && userData.user.role)) === 'REQUESTER');
+        
+        console.log('AuthContext: User role set to=', userData.role || (userData.user && userData.user.role));
       } catch (error) {
         console.error("Error refreshing user data:", error);
+        throw error; // Re-throw to be caught by the calling function
       }
     }
   }, [currentUser?.uid]);
@@ -102,6 +120,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Handle async operations without making the callback itself async
         (async () => {
           try {
+            // Auto-sync user with default role if not already in database
+            const { apiCall } = await import('../services/api');
+            await apiCall(`/api/auth/auto-sync?uid=${encodeURIComponent(user.uid)}`, {
+              method: 'POST',
+            });
+            
             // Get user role and data from backend
             await refreshUserData();
           } catch (error) {

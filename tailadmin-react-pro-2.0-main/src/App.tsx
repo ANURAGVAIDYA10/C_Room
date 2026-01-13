@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-router";
+import { BrowserRouter as Router, Routes, Route, useNavigate, Navigate } from "react-router";
 import { AuthProvider } from "./context/AuthContext";
 import { NotificationProvider } from "./context/NotificationContext";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
@@ -134,13 +134,15 @@ export default function App() {
   return (
     <>
       <AuthProvider>
-        <NotificationProvider>
-          <Router>
+      <NotificationProvider>
+      <Router>
         <ScrollToTop />
         <Routes>
+          {/* Root route - always redirect to signin */}
+          <Route path="/" element={<Navigate to="/signin" replace />} />
+          
           {/* Dashboard Layout */}
           <Route element={<AppLayout />}>
-            <Route index path="/" element={<ProtectedRoute><Ecommerce /></ProtectedRoute>} />
             <Route path="/ecommerce/dashboard" element={<ProtectedRoute><Ecommerce /></ProtectedRoute>} />
             <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
             <Route path="/marketing" element={<ProtectedRoute><Marketing /></ProtectedRoute>} />
@@ -178,7 +180,11 @@ export default function App() {
             <Route path="/send-invitation" element={<ProtectedRoute><SendInvitation /></ProtectedRoute>} />
             <Route path="/organizations" element={<ProtectedRoute><Organizations /></ProtectedRoute>} />
             <Route path="/request-management/all-open" element={<ProtectedRoute><AllOpen /></ProtectedRoute>} />
-            <Route path="/request-management/:issueKey" element={<ProtectedRoute><RequestSplitView /></ProtectedRoute>} />
+            <Route path="/request-management/assigned-to-me" element={<ProtectedRoute><AllOpen /></ProtectedRoute>} />
+            <Route path="/request-management/unassigned" element={<ProtectedRoute><AllOpen /></ProtectedRoute>} />
+            <Route path="/request-management/resolved" element={<ProtectedRoute><AllOpen /></ProtectedRoute>} />
+            <Route path="/request-management/:issueKey" element={<ProtectedPermissionRoute requiredPermissions={['VIEW_ISSUE' as Permission]}><RequestSplitView /></ProtectedPermissionRoute>} />
+            <Route path="/request-management" element={<ProtectedRoute><AllOpen /></ProtectedRoute>} />
             <Route path="/vendor-management/list" element={<ProtectedRoute><VendorList /></ProtectedRoute>} />
             <Route path="/vendor-management/contracts" element={<ProtectedRoute><VendorAgreements /></ProtectedRoute>} />
             <Route path="/vendor-management/contract-details" element={<ProtectedRoute><VendorAgreementDetails /></ProtectedRoute>} />
@@ -268,8 +274,8 @@ export default function App() {
           initialContractType={initialExistingContractIdRef.current ? 'existing' : undefined}
           initialExistingContractId={initialExistingContractIdRef.current || undefined}
         />
-          </Router>
-        </NotificationProvider>
+      </Router>
+      </NotificationProvider>
       </AuthProvider>
     </>
   );

@@ -30,7 +30,6 @@ import DropdownButton from "../components/sidebar/Dropdown";
 import PrimaryDropdownButton from "../components/sidebar/Dropdown";
 import { useClickOutside } from "../components/sidebar/Functionalites";
 import SettingsDropdown from "../components/header/ui/SettingsDropdown";
-import UserDropdown from "../components/header/ui/UserDropdown";
 
 type NavItem = {
   name: string;
@@ -518,16 +517,15 @@ const AppSidebar: React.FC = () => {
         <div className="flex-shrink-0 pb-4 px-5">
           <div className="flex flex-col gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
             {/* Profile */}
-            <div className="menu-item group relative" onClick={(e) => e.stopPropagation()}>
+            <div className="menu-item group relative">
               <div className="flex items-center">
                 <div className="relative">
-                  <UserDropdown
-                    isOpen={openBottomDropdown === 'profile'}
-                    onToggle={() => {
-                      setOpenBottomDropdown(openBottomDropdown === 'profile' ? null : 'profile');
-                    }}
-
-                  />
+                  <Link to="/profile" className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                    <span className="overflow-hidden rounded-full h-11 w-11">
+                      <img src="/images/user/owner.png" alt="User" />
+                    </span>
+                    <span className="font-medium text-theme-sm">Musharof</span>
+                  </Link>
                 </div>
                 {(isExpanded || isHovered || isMobileOpen) && (
                   <span className="menu-item-text ml-3 text-gray-900 dark:text-white">Profile</span>
@@ -535,22 +533,7 @@ const AppSidebar: React.FC = () => {
               </div>
             </div>
 
-            {/* Settings - Visible for all users during development */}
-            <div className="menu-item group relative" onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-center">
-                <div className="relative">
-                  <SettingsDropdown
-                    isOpen={openBottomDropdown === 'settings'}
-                    onToggle={() => {
-                      setOpenBottomDropdown(openBottomDropdown === 'settings' ? null : 'settings');
-                    }}
-                  />
-                </div>
-                {(isExpanded || isHovered || isMobileOpen) && (
-                  <span className="menu-item-text ml-3 text-gray-900 dark:text-white">Settings</span>
-                )}
-              </div>
-            </div>
+
           </div>
         </div>
       </div>

@@ -5,10 +5,12 @@ import { useSidebar } from "../context/SidebarContext";
 import { ThemeToggleButton } from "../components/common/ThemeToggleButton";
 import NotificationDropdown from "../components/header/NotificationDropdown";
 import UserDropdown from "../components/header/UserDropdown";
+import SettingsDropdown from "../components/header/ui/SettingsDropdown";
 import PrimaryButton from "../components/ui/button/PrimaryButton";
 
 const AppHeader: React.FC = () => {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
+  const [isSettingsOpen, setSettingsOpen] = useState(false);
 
   const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
 
@@ -190,6 +192,11 @@ const AppHeader: React.FC = () => {
             {/* <!-- Dark Mode Toggler --> */}
             <NotificationDropdown />
             {/* <!-- Notification Menu Area --> */}
+                        <SettingsDropdown
+              isOpen={isSettingsOpen}
+              onToggle={() => setSettingsOpen(!isSettingsOpen)}
+            />
+            {/* <!-- Settings Menu Area --> */}
           </div>
           {/* <!-- User Area --> */}
           <UserDropdown />

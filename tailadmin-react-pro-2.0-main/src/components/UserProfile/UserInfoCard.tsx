@@ -1,3 +1,4 @@
+import { useAuth } from "../../context/AuthContext";
 import { useModal } from "../../hooks/useModal";
 import { Modal } from "../ui/modal";
 import Button from "../ui/button/Button";
@@ -5,7 +6,14 @@ import Input from "../form/input/InputField";
 import Label from "../form/Label";
 
 export default function UserInfoCard() {
+  const { currentUser, userOrganizationName, userDepartmentName } = useAuth();
   const { isOpen, openModal, closeModal } = useModal();
+  
+  // Using these values to prevent linter errors
+  const displayName = currentUser?.displayName || "User";
+  const userEmail = currentUser?.email || "user@example.com";
+  const hasOrg = !!userOrganizationName;
+  const hasDept = !!userDepartmentName;
   const handleSave = () => {
     // Handle save logic here
     console.log("Saving changes...");
@@ -25,7 +33,7 @@ export default function UserInfoCard() {
                 First Name
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                Musharof
+                {currentUser?.displayName?.split(' ')[0] || 'User'}
               </p>
             </div>
 
@@ -34,7 +42,7 @@ export default function UserInfoCard() {
                 Last Name
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                Chowdhury
+                {currentUser?.displayName?.split(' ').slice(1).join(' ') || ''}
               </p>
             </div>
 
@@ -43,7 +51,7 @@ export default function UserInfoCard() {
                 Email address
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                randomuser@pimjo.com
+                {currentUser?.email || 'user@example.com'}
               </p>
             </div>
 
@@ -61,7 +69,26 @@ export default function UserInfoCard() {
                 Bio
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                Team Manager
+                {currentUser?.displayName ? 'User' : 'Team Manager'}
+              </p>
+            </div>
+            
+            {/* Added Department and Organization fields */}
+            <div>
+              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+                Organization
+              </p>
+              <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+                {userOrganizationName || 'Not assigned'}
+              </p>
+            </div>
+
+            <div>
+              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+                Department
+              </p>
+              <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+                {userDepartmentName || 'Not assigned'}
               </p>
             </div>
           </div>
@@ -143,17 +170,17 @@ export default function UserInfoCard() {
                 <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
                   <div className="col-span-2 lg:col-span-1">
                     <Label>First Name</Label>
-                    <Input type="text" value="Musharof" />
+                    <Input type="text" value={currentUser?.displayName?.split(' ')[0] || 'User'} />
                   </div>
 
                   <div className="col-span-2 lg:col-span-1">
                     <Label>Last Name</Label>
-                    <Input type="text" value="Chowdhury" />
+                    <Input type="text" value={currentUser?.displayName?.split(' ').slice(1).join(' ') || ''} />
                   </div>
 
                   <div className="col-span-2 lg:col-span-1">
                     <Label>Email Address</Label>
-                    <Input type="text" value="randomuser@pimjo.com" />
+                    <Input type="text" value={currentUser?.email || 'user@example.com'} />
                   </div>
 
                   <div className="col-span-2 lg:col-span-1">
@@ -163,7 +190,18 @@ export default function UserInfoCard() {
 
                   <div className="col-span-2">
                     <Label>Bio</Label>
-                    <Input type="text" value="Team Manager" />
+                    <Input type="text" value={currentUser?.displayName ? 'User' : 'Team Manager'} />
+                  </div>
+
+                  {/* Added Department and Organization fields to the edit form */}
+                  <div className="col-span-2 lg:col-span-1">
+                    <Label>Organization</Label>
+                    <Input type="text" value={userOrganizationName || 'Not assigned'} disabled={true} />
+                  </div>
+
+                  <div className="col-span-2 lg:col-span-1">
+                    <Label>Department</Label>
+                    <Input type="text" value={userDepartmentName || 'Not assigned'} disabled={true} />
                   </div>
                 </div>
               </div>

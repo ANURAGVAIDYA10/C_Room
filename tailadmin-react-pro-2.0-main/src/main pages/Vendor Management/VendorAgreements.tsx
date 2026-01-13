@@ -803,7 +803,7 @@ const VendorAgreements: React.FC = () => {
             </div>
             <div className="flex items-center gap-3">
               <PrimaryButtonWithLeftIcon
-                className="bg-yellow-500"
+                className="bg-brand-500"
                 size="sm"
                 onClick={() => setShowAddModal(true)}
                 icon={

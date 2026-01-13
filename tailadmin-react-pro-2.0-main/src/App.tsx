@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-router";
+import { BrowserRouter as Router, Routes, Route, useNavigate, Navigate } from "react-router";
 import { AuthProvider } from "./context/AuthContext";
 import { NotificationProvider } from "./context/NotificationContext";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
@@ -117,9 +117,11 @@ export default function App() {
       <Router>
         <ScrollToTop />
         <Routes>
+          {/* Root route - always redirect to signin */}
+          <Route path="/" element={<Navigate to="/signin" replace />} />
+          
           {/* Dashboard Layout */}
           <Route element={<AppLayout />}>
-            <Route index path="/" element={<ProtectedRoute><Ecommerce /></ProtectedRoute>} />
             <Route path="/ecommerce/dashboard" element={<ProtectedRoute><Ecommerce /></ProtectedRoute>} />
             <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
             <Route path="/marketing" element={<ProtectedRoute><Marketing /></ProtectedRoute>} />

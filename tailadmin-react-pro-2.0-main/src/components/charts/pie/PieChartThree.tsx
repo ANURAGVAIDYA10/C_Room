@@ -1,11 +1,11 @@
 import Chart from "react-apexcharts";
 import { ApexOptions } from "apexcharts";
 
-export default function PieChartOne() {
+export default function PieChartThree() {
   const options: ApexOptions = {
     // colors: ["#3641f5", "#7592ff", "#dde9ff"],
     colors: ["#5F230C", "#F05C22", "#F5926B","#FCD8CA"],
-    labels: ["Desktop", "Mobile", "Tablet"],
+    labels: ["Desktop", "Mobile", "Tablet", "Laptop"],
     chart: {
       fontFamily: "Outfit, sans-serif",
       type: "donut",

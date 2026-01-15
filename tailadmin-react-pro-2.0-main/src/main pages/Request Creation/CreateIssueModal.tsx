@@ -7,6 +7,7 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { Modal } from '../../components/ui/modal';
 import Notification from '../../components/ui/notification/Notfication';
 
+// Request Creation Page
 function normalizeVendorType(
   type: string | null | undefined
 ): 'usage' | 'license' | '' {

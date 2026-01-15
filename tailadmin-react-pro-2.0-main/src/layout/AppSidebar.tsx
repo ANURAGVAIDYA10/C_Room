@@ -72,7 +72,6 @@ const navItems: NavItem[] = [
       { name: "Vendors", path: "/vendor-management/list" },
       { name: "Renewal", path: "/vendor-management/VendorRenewal/Renewal_vendor" },
       { name: "Agreements", path: "/vendor-management/contracts" },
-      { name: "Contract Details", path: "/vendor-management/contract-details" },
     ],
   },
   {
@@ -118,11 +117,6 @@ const navItems: NavItem[] = [
     icon: <CalenderIcon />,
     name: "Calendar",
     path: "/calendar",
-  },
-  {
-    icon: <UserCircleIcon />,
-    name: "User Profile",
-    path: "/profile",
   },
   {
     name: "Task",
@@ -520,7 +514,7 @@ const AppSidebar: React.FC = () => {
           !isExpanded && !isHovered ? "xl:justify-center" : "justify-start"
         }`}
       >
-        <Link to="/">
+        <Link to="/ecommerce/dashboard">
           {isExpanded || isHovered || isMobileOpen ? (
             <>
               <img
@@ -591,22 +585,7 @@ const AppSidebar: React.FC = () => {
         {/* Fixed bottom items */}
         <div className="flex-shrink-0 pb-4 px-5">
           <div className="flex flex-col gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
-            {/* Profile */}
-            <div className="menu-item group relative">
-              <div className="flex items-center">
-                <div className="relative">
-                  <Link to="/profile" className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
-                    <span className="overflow-hidden rounded-full h-11 w-11">
-                      <img src="/images/user/owner.png" alt="User" />
-                    </span>
-                    <span className="font-medium text-theme-sm">Musharof</span>
-                  </Link>
-                </div>
-                {(isExpanded || isHovered || isMobileOpen) && (
-                  <span className="menu-item-text ml-3 text-gray-900 dark:text-white">Profile</span>
-                )}
-              </div>
-            </div>
+
 
 
           </div>

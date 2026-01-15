@@ -2,6 +2,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
 import { auth } from "../firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
+import { userService } from "../services/userService";
 import { Permission, hasPermission, hasAnyPermission, hasAllPermissions } from "../config/permissions";
 
 // Define the user data structure
@@ -77,29 +78,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (currentUser?.uid) {
       try {
         console.log('AuthContext: Refreshing user data for uid=', currentUser.uid);
-        
-        // Import the apiCall function to get user data from backend
-        const { apiCall } = await import('../services/api');
-        
-        const userData = await apiCall(`/api/auth/role/${currentUser.uid}`);
+        const userData = await userService.getUserData(currentUser.uid);
         console.log('AuthContext: User data received=', userData);
-        
-        // Set user data from backend
-        setUserData(userData.user || userData);
-        setUserRole(userData.role || (userData.user && userData.user.role));
-        setUserDepartmentId((userData.department || (userData.user && userData.user.department))?.id || null);
-        setUserDepartmentName((userData.department || (userData.user && userData.user.department))?.name || null);
-        setUserOrganizationId((userData.organization || (userData.user && userData.user.organization))?.id || null);
-        setUserOrganizationName((userData.organization || (userData.user && userData.user.organization))?.name || null);
-        setIsAdmin((userData.role || (userData.user && userData.user.role)) === 'ADMIN' || (userData.role || (userData.user && userData.user.role)) === 'SUPER_ADMIN');
-        setIsSuperAdmin((userData.role || (userData.user && userData.user.role)) === 'SUPER_ADMIN');
-        setIsApprover((userData.role || (userData.user && userData.user.role)) === 'APPROVER');
-        setIsRequester((userData.role || (userData.user && userData.user.role)) === 'REQUESTER');
-        
-        console.log('AuthContext: User role set to=', userData.role || (userData.user && userData.user.role));
+        setUserData(userData);
+        setUserRole(userData.role);
+        setUserDepartmentId(userData.department?.id || null);
+        setUserDepartmentName(userData.department?.name || null);
+        setUserOrganizationId(userData.organization?.id || null);
+        setUserOrganizationName(userData.organization?.name || null);
+        setIsAdmin(userData.role === 'ADMIN' || userData.role === 'SUPER_ADMIN');
+        setIsSuperAdmin(userData.role === 'SUPER_ADMIN');
+        setIsApprover(userData.role === 'APPROVER');
+        setIsRequester(userData.role === 'REQUESTER');
+        console.log('AuthContext: User role set to=', userData.role);
       } catch (error) {
         console.error("Error refreshing user data:", error);
-        throw error; // Re-throw to be caught by the calling function
+        throw error;
       }
     }
   }, [currentUser?.uid]);
@@ -121,10 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         (async () => {
           try {
             // Auto-sync user with default role if not already in database
-            const { apiCall } = await import('../services/api');
-            await apiCall(`/api/auth/auto-sync?uid=${encodeURIComponent(user.uid)}`, {
-              method: 'POST',
-            });
+            await userService.autoSyncUser(user.uid);
             
             // Get user role and data from backend
             await refreshUserData();

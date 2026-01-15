@@ -183,7 +183,7 @@ export default function App() {
             <Route path="/request-management/assigned-to-me" element={<ProtectedRoute><AllOpen /></ProtectedRoute>} />
             <Route path="/request-management/unassigned" element={<ProtectedRoute><AllOpen /></ProtectedRoute>} />
             <Route path="/request-management/resolved" element={<ProtectedRoute><AllOpen /></ProtectedRoute>} />
-            <Route path="/request-management/:issueKey" element={<ProtectedPermissionRoute requiredPermissions={['VIEW_ISSUE' as Permission]}><RequestSplitView /></ProtectedPermissionRoute>} />
+            <Route path="/request-management/:issueKey" element={<ProtectedPermissionRoute requiredPermissions={[Permission.VIEW_ISSUES]}><RequestSplitView /></ProtectedPermissionRoute>} />
             <Route path="/request-management" element={<ProtectedRoute><AllOpen /></ProtectedRoute>} />
             <Route path="/vendor-management/list" element={<ProtectedRoute><VendorList /></ProtectedRoute>} />
             <Route path="/vendor-management/contracts" element={<ProtectedRoute><VendorAgreements /></ProtectedRoute>} />

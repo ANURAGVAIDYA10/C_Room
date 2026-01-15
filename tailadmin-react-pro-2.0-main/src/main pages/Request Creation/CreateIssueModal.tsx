@@ -162,7 +162,7 @@ const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
   const renewalDateRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    if (isOpen && userData && currentUser) {
+    if (isOpen && userData && userData.user && currentUser) {
       setRequesterName(userData.user.name || '');
       setRequesterMail(currentUser.email || '');
       // Clear any previous success messages when opening the modal
@@ -218,6 +218,60 @@ const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
       }
     }
   }, [isOpen, initialContractType, initialExistingContractId, existingContracts.length]);
+
+  // Effect to populate form fields when an existing contract is selected
+  useEffect(() => {
+    if (contractType === 'existing' && selectedExistingContractId) {
+      const found = existingContracts.find(c => c.id === selectedExistingContractId);
+      if (!found) return;
+      setVendorName(found.vendorName);
+      setProductName(found.productName);
+      setVendorContractType(found.vendorContractType);
+      setDueDate(found.vendorStartDate || '');
+      setRenewalDate(found.vendorEndDate || '');
+      setAdditionalComment(found.additionalComment ?? '');
+      if (found.requesterName) setRequesterName(found.requesterName);
+      if (found.requesterMail) setRequesterMail(found.requesterMail);
+      setRenewalType('');
+      if (typeof found.vendorUsage !== 'undefined' && found.vendorUsage !== null) {
+        const usageNum = Number(found.vendorUsage) || 0;
+        if (found.vendorContractType === 'usage') {
+          setCurrentUsageCount(usageNum);
+          setCurrentLicenseCount('');
+          setNewUsageCount(usageNum);
+          if (found.vendorUnit && !['credits', 'minutes', 'others'].includes(found.vendorUnit)) {
+            setCurrentUnits('others');
+            setCurrentUnitsOther(found.vendorUnit);
+            setNewUnits('others');
+            setNewUnitsOther(found.vendorUnit);
+          } else {
+            setCurrentUnits((found.vendorUnit as any) ?? '');
+            setCurrentUnitsOther('');
+            setNewUnits((found.vendorUnit as any) ?? '');
+            setNewUnitsOther('');
+          }
+        } else if (found.vendorContractType === 'license') {
+          setCurrentLicenseCount(usageNum);
+          setCurrentUsageCount('');
+          setNewLicenseCount(usageNum);
+          setNewUsageCount('');
+          if (found.vendorUnit === 'agents' || found.vendorUnit === 'users') {
+            setCurrentLicenseUnit(found.vendorUnit as any);
+            setNewLicenseUnit(found.vendorUnit as any);
+          } else {
+            setCurrentLicenseUnit('');
+            setNewLicenseUnit('');
+          }
+        }
+      } else {
+        setCurrentUsageCount('');
+        setCurrentLicenseCount('');
+        setNewUsageCount('');
+        setNewLicenseCount('');
+        setNewUnits('');
+      }
+    }
+  }, [selectedExistingContractId, contractType, existingContracts]);
 
   const fetchExistingContracts = async () => {
     try {

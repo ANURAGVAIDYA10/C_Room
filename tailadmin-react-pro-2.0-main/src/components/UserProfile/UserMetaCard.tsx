@@ -56,6 +56,7 @@ export default function UserMetaCard() {
   </div>
           <div className="flex items-center gap-3">
             <UserRoleBadge />
+            <span className="text-gray-400 text-xs">|</span>
             <span className="text-sm text-gray-500 dark:text-gray-400">
               {userEmail}
             </span>

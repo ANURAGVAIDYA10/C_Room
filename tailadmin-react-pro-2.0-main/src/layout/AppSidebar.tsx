@@ -1,35 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 
-// Assume these icons are imported from an icon library
-import {
-  AiIcon,
-  BoxCubeIcon,
-  CalenderIcon,
-  CallIcon,
-  CartIcon,
-  ChatIcon,
-  ChevronDownIcon,
-  DocsIcon,
-  FolderIcon,
-  GridIcon,
-  HorizontaLDots,
-  ListIcon,
-  MailIcon,
-  PageIcon,
-  PieChartIcon,
-  PlugInIcon,
-  TableIcon,
-  TaskIcon,
-  UserCircleIcon,
-} from "../icons";
+// Import icons from different libraries
+import HomeIcon from '@mui/icons-material/Home';
+import FolderIcon from '@mui/icons-material/Folder';
+import FileOpenIcon from '@mui/icons-material/FileOpen';
+import CodeIcon from '@mui/icons-material/Code';
+import BuildIcon from '@mui/icons-material/Build';
+import SettingsIcon from '@mui/icons-material/Settings';
+import DashboardIcon from '@mui/icons-material/Dashboard';
+import DescriptionIcon from '@mui/icons-material/Description';
+import { House, Folder, File, Code, Gear, Wrench, ChartLine, FileText } from "phosphor-react";
+import { HiHome, HiFolder, HiDocument, HiCode, HiCog, HiChartBar, HiClipboardList } from "react-icons/hi";
+
+// Other imports
 import { useSidebar } from "../context/SidebarContext";
 import { useAuth } from "../context/AuthContext";
 import SidebarWidget from "./SidebarWidget";
-import DropdownButton from "../components/sidebar/Dropdown";
 import PrimaryDropdownButton from "../components/sidebar/Dropdown";
 import { useClickOutside } from "../components/sidebar/Functionalites";
-import SettingsDropdown from "../components/header/ui/SettingsDropdown";
+import { HorizontaLDots } from "../icons";
 
 type NavItem = {
   name: string;
@@ -41,145 +31,147 @@ type NavItem = {
 };
 
 const navItems: NavItem[] = [
+  // Search bar item - special handling in renderMenuItems
   {
-    // Search bar item - special handling in renderMenuItems
     name: "search-bar",
     icon: null,
     path: "#",
   },
+  // HOME Icons (all libraries)
   {
-    name: "Procurement Request",
-    icon: <DocsIcon />,
-    subItems: [
-      { name: "Renewal", path: "/procurement/renewal", pro: false },
-    ],
+    name: "HOME (Google)",
+    icon: <HomeIcon className="text-red-500 dark:text-blue-400" fontSize="medium" />,
+    path: "/",
   },
   {
-    name: "Request Management",
-    icon: <ListIcon />,
-    subItems: [
-      { name: "All Request", path: "/request-management/all-open" },
-      { name: "Assigned to Me", path: "/request-management/assigned-to-me" },
-      { name: "Unassigned", path: "/request-management/unassigned" },
-      { name: "Resolved", path: "/request-management/resolved" },
-    ],
-  },
-  // Vendor Management dropdown - Added as requested
-  {
-    name: "Vendor Management",
-    icon: <FolderIcon />,
-    subItems: [
-      { name: "Vendors", path: "/vendor-management/list" },
-      { name: "Renewal", path: "/vendor-management/VendorRenewal/Renewal_vendor" },
-      { name: "Agreements", path: "/vendor-management/contracts" },
-    ],
+    name: "HOME (Phosphor)",
+    icon: <House weight="fill" className="text-green-500 dark:text-green-400" size={24} />,
+    path: "/",
   },
   {
-    icon: <GridIcon />,
-    name: "Dashboard",
-    subItems: [
-      { name: "Ecommerce", path: "/", pro: false },
-      { name: "Analytics", path: "/analytics", pro: false },
-      { name: "Marketing", path: "/marketing", pro: false },
-      { name: "CRM", path: "/crm", pro: false },
-      { name: "Stocks", path: "/stocks", pro: false },
-      { name: "SaaS", path: "/saas", new: true },
-      { name: "Logistics", path: "/logistics", new: true },
-    ],
+    name: "HOME (Iconear)",
+    icon: <HiHome className="text-green-500 dark:text-yellow-400 border border-yellow-300 dark:border-yellow-700 rounded-md p-1" size={22} />,
+    path: "/",
+  },
+  // FILE Icons (all libraries)
+  {
+    name: "FILE (Google)",
+    icon: <FileOpenIcon className="text-yellow-500 dark:text-yellow-400 border border-yellow-300 dark:border-yellow-700 rounded-full p-1" fontSize="medium" />,
+    path: "/",
   },
   {
-    name: "AI Assistant",
-    icon: <AiIcon />,
-    new: true,
-    subItems: [
-      { name: "Text Generator", path: "/text-generator", pro: false },
-      { name: "Image Generator", path: "/image-generator", pro: false },
-      { name: "Code Generator", path: "/code-generator", pro: false },
-      { name: "Video Generator", path: "/video-generator", pro: false },
-    ],
+    name: "FILE (Phosphor)",
+    icon: <File weight="regular" className="text-red-500 dark:text-red-400" size={24} />,
+    path: "/",
   },
   {
-    name: "E-commerce",
-    icon: <CartIcon />,
-    new: true,
-    subItems: [
-      { name: "Products", path: "/products-list", pro: false },
-      { name: "Add Product", path: "/add-product", pro: false },
-      { name: "Billing", path: "/billing", pro: false },
-      { name: "Invoices", path: "/invoices", pro: false },
-      { name: "Single Invoice", path: "/single-invoice", pro: false },
-      { name: "Create Invoice", path: "/create-invoice", pro: false },
-      { name: "Transactions", path: "/transactions", pro: false },
-      { name: "Single Transaction", path: "/single-transaction", pro: false },
-    ],
+    name: "FILE (Iconear)",
+    icon: <HiDocument className="text-indigo-500 dark:text-indigo-400" size={24} />,
+    path: "/",
+  },
+  // FOLDER Icons (all libraries)
+  {
+    name: "FOLDER (Google)",
+    icon: <FolderIcon className="text-orange-500 dark:text-orange-400" fontSize="medium" />,
+    path: "/",
   },
   {
-    icon: <CalenderIcon />,
-    name: "Calendar",
-    path: "/calendar",
+    name: "FOLDER (Phosphor)",
+    icon: <Folder weight="fill" className="text-teal-500 dark:text-teal-400 border border-teal-300 dark:border-teal-700 rounded-md p-1" size={22} />,
+    path: "/",
   },
   {
-    name: "Task",
-    icon: <TaskIcon />,
-    subItems: [
-      { name: "List", path: "/task-list", pro: true },
-      { name: "Kanban", path: "/task-kanban", pro: true },
-    ],
+    name: "FOLDER (Iconear)",
+    icon: <HiFolder className="text-pink-500 dark:text-pink-400" size={24} />,
+    path: "/",
+  },
+  // CODE Icons (all libraries)
+  {
+    name: "CODE (Google)",
+    icon: <CodeIcon className="text-cyan-500 dark:text-cyan-400" fontSize="medium" />,
+    path: "/",
   },
   {
-    name: "Forms",
-    icon: <ListIcon />,
-    subItems: [
-      { name: "Form Elements", path: "/form-elements", pro: false },
-      { name: "Form Layout", path: "/form-layout", pro: true },
-    ],
+    name: "CODE (Phosphor)",
+    icon: <Code weight="fill" className="text-lime-500 dark:text-lime-400 border border-lime-300 dark:border-lime-700 rounded-md p-1" size={22} />,
+    path: "/",
   },
   {
-    name: "Tables",
-    icon: <TableIcon />,
-    subItems: [
-      { name: "Basic Tables", path: "/basic-tables", pro: false },
-      { name: "Data Tables", path: "/data-tables", pro: true },
-    ],
+    name: "CODE (Iconear)",
+    icon: <HiCode className="text-amber-500 dark:text-amber-400" size={24} />,
+    path: "/",
+  },
+  // SETTINGS Icons (all libraries)
+  {
+    name: "SETTINGS (Google)",
+    icon: <SettingsIcon className="text-emerald-500 dark:text-emerald-400" fontSize="medium" />,
+    path: "/",
   },
   {
-    name: "Pages",
-    icon: <PageIcon />,
-    subItems: [
-      { name: "File Manager", path: "/file-manager", pro: false },
-      { name: "Pricing Tables", path: "/pricing-tables", pro: false },
-      { name: "FAQ", path: "/faq", pro: false },
-      { name: "API Keys", path: "/api-keys", new: true },
-      { name: "Integrations", path: "/integrations", new: true },
-      { name: "Blank Page", path: "/blank", pro: false },
-      { name: "404 Error", path: "/error-404", pro: false },
-      { name: "500 Error", path: "/error-500", pro: false },
-      { name: "503 Error", path: "/error-503", pro: false },
-      { name: "Coming Soon", path: "/coming-soon", pro: false },
-      { name: "Maintenance", path: "/maintenance", pro: false },
-      { name: "Success", path: "/success", pro: false },
-    ],
+    name: "SETTINGS (Phosphor)",
+    icon: <Gear weight="fill" className="text-rose-500 dark:text-rose-400" size={24} />,
+    path: "/",
+  },
+  {
+    name: "SETTINGS (Iconear)",
+    icon: <HiCog className="text-violet-500 dark:text-violet-400 border border-violet-300 dark:border-violet-700 rounded-full p-1" size={22} />,
+    path: "/",
+  },
+  // BUILD/WRENCH Icons (all libraries)
+  {
+    name: "BUILD (Google)",
+    icon: <BuildIcon className="text-sky-500 dark:text-sky-400 border border-sky-300 dark:border-sky-700 rounded-md p-1" fontSize="medium" />,
+    path: "/",
+  },
+  {
+    name: "BUILD (Phosphor)",
+    icon: <Wrench weight="fill" className="text-fuchsia-500 dark:text-fuchsia-400" size={24} />,
+    path: "/",
+  },
+  // DASHBOARD Icons (all libraries)
+  {
+    name: "DASHBOARD (Google)",
+    icon: <DashboardIcon className="text-rose-500 dark:text-rose-400" fontSize="medium" />,
+    path: "/",
+  },
+  // CHART Icons (all libraries)
+  {
+    name: "CHART (Phosphor)",
+    icon: <ChartLine weight="fill" className="text-emerald-500 dark:text-emerald-400" size={24} />,
+    path: "/",
+  },
+  {
+    name: "CHART (Iconear)",
+    icon: <HiChartBar className="text-amber-500 dark:text-amber-400 border border-amber-300 dark:border-amber-700 rounded-full p-1" size={22} />,
+    path: "/",
+  },
+  // DOCUMENT/DESCRIPTION Icons (all libraries)
+  {
+    name: "DESCRIPTION (Google)",
+    icon: <DescriptionIcon className="text-teal-500 dark:text-teal-400" fontSize="medium" />,
+    path: "/",
+  },
+  {
+    name: "DOCUMENT (Phosphor)",
+    icon: <FileText weight="fill" className="text-cyan-500 dark:text-cyan-400" size={24} />,
+    path: "/",
+  },
+  // CLIPBOARD/CLIPBOARDLIST Icons (all libraries)
+  {
+    name: "CLIPBOARD (Iconear)",
+    icon: <HiClipboardList className="text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-700 rounded-md p-1" size={22} />,
+    path: "/",
+  },
+  // Search bar item - special handling in renderMenuItems
+  {
+    name: "search-bar",
+    icon: null,
+    path: "#",
   },
 ];
 
 // Adding Others section similar to reference project
-const othersItems: NavItem[] = [
-  {
-    name: "Request",
-    icon: <TaskIcon />,
-    path: "/requests",
-  },
-  {
-    name: "Reports",
-    icon: <PieChartIcon />,
-    path: "/reports",
-  },
-  {
-    icon: <CalenderIcon />,
-    name: "Calendar",
-    path: "/calendar",
-  },
-];
+const othersItems: NavItem[] = [];
 
 // Support items removed as per user request
 // const supportItems: NavItem[] = [

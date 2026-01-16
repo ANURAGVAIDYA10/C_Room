@@ -93,6 +93,7 @@ import VendorAgreements from "./main pages/Vendor Management/VendorAgreements";
 import VendorAgreementDetails from "./main pages/Vendor Management/VendorAgreementDetails";
 import RenewalVendor from "./main pages/Vendor Management/VendorRenewal/Renewal_vendor";
 import ProcurementRenewal from "./main pages/Procurement Request/procurement-renewal";
+import TestingIconsPage from "./testing_icons/test";
 
 export default function App() {
   const [isCreateIssueModalOpen, setIsCreateIssueModalOpen] = useState(false);
@@ -190,6 +191,7 @@ export default function App() {
             <Route path="/vendor-management/contract-details" element={<ProtectedRoute><VendorAgreementDetails /></ProtectedRoute>} />
             <Route path="/vendor-management/VendorRenewal/Renewal_vendor" element={<ProtectedRoute><RenewalVendor /></ProtectedRoute>} />
             <Route path="/procurement/renewal" element={<ProtectedRoute><ProcurementRenewal /></ProtectedRoute>} />
+            <Route path="/testing-icons" element={<ProtectedRoute><TestingIconsPage /></ProtectedRoute>} />
             <Route path="/blank" element={<ProtectedRoute><Blank /></ProtectedRoute>} />
 
             {/* Forms */}

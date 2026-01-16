@@ -258,7 +258,6 @@ const navItems: NavItem[] = [
     path: "/calendar",
   },
   {
-<<<<<<< HEAD
     icon: (
     <div className="flex flex-col items-center gap-1">
       <PhosphorUserCircle size={16} weight="thin" />
@@ -273,8 +272,6 @@ const navItems: NavItem[] = [
     path: "/profile",
   },
   {
-=======
->>>>>>> 0fbd1247e83ae741b473640467b4ec6ca63d7ad3
     name: "Task",
     icon: <List weight="fill" />, // Fill variant
     subItems: [

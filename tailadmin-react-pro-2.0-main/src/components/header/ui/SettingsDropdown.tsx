@@ -14,7 +14,9 @@ export default function SettingsDropdown({ isOpen, onToggle }: SettingsDropdownP
   const { isAdmin, isSuperAdmin } = useAuth();
 
   function closeDropdown() {
-    onToggle();
+    if (isOpen) {
+      onToggle();
+    }
   }
 
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -45,7 +47,7 @@ export default function SettingsDropdown({ isOpen, onToggle }: SettingsDropdownP
       <Dropdown
         isOpen={isOpen}
         onClose={closeDropdown}
-        className="absolute z-40 left-full top-0 mt-0 w-[220px] flex flex-col rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg dark:border-gray-800 dark:bg-gray-dark"
+        className="absolute z-40 left-0 top-full mt-2 w-[220px] flex flex-col rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg dark:border-gray-800 dark:bg-gray-dark"
       >
         <ul className="flex flex-col gap-1">
           {/* Show User Management only to admin and SUPER_ADMIN users */}

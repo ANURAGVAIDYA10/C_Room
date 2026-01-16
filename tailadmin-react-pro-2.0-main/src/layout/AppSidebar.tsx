@@ -1,28 +1,50 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 
-// Assume these icons are imported from an icon library
+// Import phosphor icons with different variants
 import {
-  AiIcon,
-  BoxCubeIcon,
-  CalenderIcon,
-  CallIcon,
-  CartIcon,
-  ChatIcon,
-  ChevronDownIcon,
-  DocsIcon,
-  FolderIcon,
-  GridIcon,
-  HorizontaLDots,
-  ListIcon,
-  MailIcon,
-  PageIcon,
-  PieChartIcon,
-  PlugInIcon,
-  TableIcon,
-  TaskIcon,
-  UserCircleIcon,
-} from "../icons";
+  File,
+  FileText,
+  FileDotted,
+  FileZip,
+  FilePlus,
+  Gear,
+  ChartBar,
+  ShoppingCart,
+  Chat,
+  Phone,
+  Folder,
+  Calendar,
+  UserCircle as PhosphorUserCircle,
+  List,
+  Table,
+  FilePdf,
+  Plugs,
+  Cube,
+  Lightbulb,
+  DotsThreeVertical,
+  Files,
+  SquaresFour,
+} from "phosphor-react";
+
+// Import Iconoir icons
+import {
+  MultiplePages,
+  Page,
+  PagePlus,
+  PageMinus,
+  PageStar,
+  Journal,
+  TaskList,
+  User as IconoirUser,
+  UserXmark,
+  CheckCircle,
+  XmarkCircle,
+  Industry,
+  Building,
+  UserBag,
+  Shop,
+} from "iconoir-react";
 import { useSidebar } from "../context/SidebarContext";
 import { useAuth } from "../context/AuthContext";
 import SidebarWidget from "./SidebarWidget";
@@ -37,7 +59,7 @@ type NavItem = {
   path?: string;
   new?: boolean;
   pro?: boolean;
-  subItems?: { name: string; path: string; pro?: boolean; new?: boolean }[];
+  subItems?: { name: string; path: string; pro?: boolean; new?: boolean; icon?: React.ReactNode }[];
 };
 
 const navItems: NavItem[] = [
@@ -49,14 +71,68 @@ const navItems: NavItem[] = [
   },
   {
     name: "Procurement Request",
-    icon: <DocsIcon />,
+    icon: (
+    <div className="flex items-center gap-1">
+      <div className="flex flex-col items-center gap-1">
+        <File size={16} weight="thin" />
+        <File size={16} weight="light" />
+        <File size={16} weight="regular" />
+        <File size={16} weight="bold" />
+        <File size={16} weight="fill" />
+        <File size={16} weight="duotone" />
+      </div>
+      <div className="flex flex-col items-center gap-1">
+        <span className="material-icons text-xs">draft</span>
+        <span className="material-icons text-xs">insert_drive_file</span>
+        <span className="material-icons text-xs">description</span>
+        <span className="material-icons text-xs">receipt</span>
+        <span className="material-icons text-xs">file_copy</span>
+        <span className="material-icons text-xs">attachment</span>
+      </div>
+      <div className="flex flex-col items-center gap-1">
+        <MultiplePages height={16} width={16} color="#3b82f6" />
+        <Page height={16} width={16} />
+        <PagePlus height={16} width={16} />
+        <PageMinus height={16} width={16} />
+        <PageStar height={16} width={16} />
+        <Journal height={16} width={16} />
+      </div>
+    </div>
+  ),
     subItems: [
       { name: "Renewal", path: "/procurement/renewal", pro: false },
     ],
   },
   {
     name: "Request Management",
-    icon: <ListIcon />,
+    icon: (
+    <div className="flex items-center gap-1">
+      <div className="flex flex-col items-center gap-1">
+        <List size={16} weight="thin" />
+        <List size={16} weight="light" />
+        <List size={16} weight="regular" />
+        <List size={16} weight="bold" />
+        <List size={16} weight="fill" />
+        <List size={16} weight="duotone" />
+      </div>
+      <div className="flex flex-col items-center gap-1">
+        <span className="material-icons text-xs">list</span>
+        <span className="material-icons text-xs">assignment</span>
+        <span className="material-icons text-xs">format_list_bulleted</span>
+        <span className="material-icons text-xs">checklist</span>
+        <span className="material-icons text-xs">task_alt</span>
+        <span className="material-icons text-xs">fact_check</span>
+      </div>
+      <div className="flex flex-col items-center gap-1">
+        <TaskList height={16} width={16} />
+        <IconoirUser height={16} width={16} />
+        <CheckCircle height={16} width={16} />
+        <XmarkCircle height={16} width={16} />
+        <UserXmark height={16} width={16} />
+        <UserBag height={16} width={16} />
+      </div>
+    </div>
+  ),
     subItems: [
       { name: "All Request", path: "/request-management/all-open" },
       { name: "Assigned to Me", path: "/request-management/assigned-to-me" },
@@ -67,7 +143,34 @@ const navItems: NavItem[] = [
   // Vendor Management dropdown - Added as requested
   {
     name: "Vendor Management",
-    icon: <FolderIcon />,
+    icon: (
+    <div className="flex items-center gap-1">
+      <div className="flex flex-col items-center gap-1">
+        <Folder size={16} weight="thin" />
+        <Folder size={16} weight="light" />
+        <Folder size={16} weight="regular" />
+        <Folder size={16} weight="bold" />
+        <Folder size={16} weight="fill" />
+        <Folder size={16} weight="duotone" />
+      </div>
+      <div className="flex flex-col items-center gap-1">
+        <span className="material-icons text-xs">folder</span>
+        <span className="material-icons text-xs">folder_open</span>
+        <span className="material-icons text-xs">folder_shared</span>
+        <span className="material-icons text-xs">create_new_folder</span>
+        <span className="material-icons text-xs">folder_special</span>
+        <span className="material-icons text-xs">source</span>
+      </div>
+      <div className="flex flex-col items-center gap-1">
+        <Industry height={16} width={16} />
+        <Building height={16} width={16} />
+        <Shop height={16} width={16} />
+        <UserBag height={16} width={16} />
+        <IconoirUser height={16} width={16} />
+        <UserXmark height={16} width={16} />
+      </div>
+    </div>
+  ),
     subItems: [
       { name: "Vendors", path: "/vendor-management/list" },
       { name: "Renewal", path: "/vendor-management/VendorRenewal/Renewal_vendor" },
@@ -76,7 +179,16 @@ const navItems: NavItem[] = [
     ],
   },
   {
-    icon: <GridIcon />,
+    icon: (
+    <div className="flex flex-col items-center gap-1">
+      <Files size={16} weight="thin" />
+      <Files size={16} weight="light" />
+      <Files size={16} weight="regular" />
+      <Files size={16} weight="bold" />
+      <Files size={16} weight="fill" />
+      <Files size={16} weight="duotone" />
+    </div>
+  ),
     name: "Dashboard",
     subItems: [
       { name: "Ecommerce", path: "/", pro: false },
@@ -90,7 +202,16 @@ const navItems: NavItem[] = [
   },
   {
     name: "AI Assistant",
-    icon: <AiIcon />,
+    icon: (
+    <div className="flex flex-col items-center gap-1">
+      <Lightbulb size={16} weight="thin" />
+      <Lightbulb size={16} weight="light" />
+      <Lightbulb size={16} weight="regular" />
+      <Lightbulb size={16} weight="bold" />
+      <Lightbulb size={16} weight="fill" />
+      <Lightbulb size={16} weight="duotone" />
+    </div>
+  ),
     new: true,
     subItems: [
       { name: "Text Generator", path: "/text-generator", pro: false },
@@ -101,7 +222,16 @@ const navItems: NavItem[] = [
   },
   {
     name: "E-commerce",
-    icon: <CartIcon />,
+    icon: (
+    <div className="flex flex-col items-center gap-1">
+      <ShoppingCart size={16} weight="thin" />
+      <ShoppingCart size={16} weight="light" />
+      <ShoppingCart size={16} weight="regular" />
+      <ShoppingCart size={16} weight="bold" />
+      <ShoppingCart size={16} weight="fill" />
+      <ShoppingCart size={16} weight="duotone" />
+    </div>
+  ),
     new: true,
     subItems: [
       { name: "Products", path: "/products-list", pro: false },
@@ -115,18 +245,36 @@ const navItems: NavItem[] = [
     ],
   },
   {
-    icon: <CalenderIcon />,
+    icon: (
+    <div className="flex flex-col items-center gap-1">
+      <Calendar size={16} weight="thin" />
+      <Calendar size={16} weight="light" />
+      <Calendar size={16} weight="regular" />
+      <Calendar size={16} weight="bold" />
+      <Calendar size={16} weight="fill" />
+      <Calendar size={16} weight="duotone" />
+    </div>
+  ), // Regular variant
     name: "Calendar",
     path: "/calendar",
   },
   {
-    icon: <UserCircleIcon />,
+    icon: (
+    <div className="flex flex-col items-center gap-1">
+      <PhosphorUserCircle size={16} weight="thin" />
+      <PhosphorUserCircle size={16} weight="light" />
+      <PhosphorUserCircle size={16} weight="regular" />
+      <PhosphorUserCircle size={16} weight="bold" />
+      <PhosphorUserCircle size={16} weight="fill" />
+      <PhosphorUserCircle size={16} weight="duotone" />
+    </div>
+  ), // Light variant
     name: "User Profile",
     path: "/profile",
   },
   {
     name: "Task",
-    icon: <TaskIcon />,
+    icon: <List weight="fill" />, // Fill variant
     subItems: [
       { name: "List", path: "/task-list", pro: true },
       { name: "Kanban", path: "/task-kanban", pro: true },
@@ -134,7 +282,7 @@ const navItems: NavItem[] = [
   },
   {
     name: "Forms",
-    icon: <ListIcon />,
+    icon: <List weight="light" />, // Light variant
     subItems: [
       { name: "Form Elements", path: "/form-elements", pro: false },
       { name: "Form Layout", path: "/form-layout", pro: true },
@@ -142,7 +290,7 @@ const navItems: NavItem[] = [
   },
   {
     name: "Tables",
-    icon: <TableIcon />,
+    icon: <Table weight="thin" />, // Thin variant
     subItems: [
       { name: "Basic Tables", path: "/basic-tables", pro: false },
       { name: "Data Tables", path: "/data-tables", pro: true },
@@ -150,7 +298,7 @@ const navItems: NavItem[] = [
   },
   {
     name: "Pages",
-    icon: <PageIcon />,
+    icon: <FileText weight="bold" />, // Bold variant
     subItems: [
       { name: "File Manager", path: "/file-manager", pro: false },
       { name: "Pricing Tables", path: "/pricing-tables", pro: false },
@@ -172,46 +320,57 @@ const navItems: NavItem[] = [
 const othersItems: NavItem[] = [
   {
     name: "Request",
-    icon: <TaskIcon />,
+    icon: <List weight="fill" />, // Fill variant
     path: "/requests",
   },
   {
     name: "Reports",
-    icon: <PieChartIcon />,
+    icon: <ChartBar weight="duotone" />, // Duotone variant
     path: "/reports",
   },
   {
-    icon: <CalenderIcon />,
+    icon: <Calendar weight="regular" />, // Regular variant
     name: "Calendar",
     path: "/calendar",
   },
+  {
+    name: "Icons Showcase",
+    icon: (
+    <div className="flex items-center gap-1">
+      <File size={16} weight="regular" />
+      <span className="material-icons text-xs">description</span>
+      <Page height={16} width={16} />
+    </div>
+  ),
+    path: "/icons-showcase",
+  },
 ];
 
-// Support items removed as per user request
-// const supportItems: NavItem[] = [
-//   {
-//     icon: <ChatIcon />,
-//     name: "Chat",
-//     path: "/chat",
-//   },
-//   {
-//     icon: <CallIcon />,
-//     name: "Support Ticket",
-//     new: true,
-//     subItems: [
-//       { name: "Ticket List", path: "/support-tickets" },
-//       { name: "Ticket Reply", path: "/support-ticket-reply" },
-//     ],
-//   },
-//   {
-//     icon: <MailIcon />,
-//     name: "Email",
-//     subItems: [
-//       { name: "Inbox", path: "/inbox" },
-//       { name: "Details", path: "/inbox-details" },
-//     ],
-//   },
-// ];
+// Support items with phosphor icon variants
+const supportItems: NavItem[] = [
+  {
+    icon: <Chat weight="thin" />, // Thin variant
+    name: "Chat",
+    path: "/chat",
+  },
+  {
+    icon: <Phone weight="bold" />, // Bold variant
+    name: "Support Ticket",
+    new: true,
+    subItems: [
+      { name: "Ticket List", path: "/support-tickets" },
+      { name: "Ticket Reply", path: "/support-ticket-reply" },
+    ],
+  },
+  {
+    icon: <FilePdf weight="duotone" />, // Duotone variant
+    name: "Email",
+    subItems: [
+      { name: "Inbox", path: "/inbox" },
+      { name: "Details", path: "/inbox-details" },
+    ],
+  },
+];
 
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered, setIsMobileOpen, setIsExpanded } =
@@ -456,6 +615,11 @@ const AppSidebar: React.FC = () => {
                           : "menu-dropdown-item-inactive"
                       }`}
                     >
+                      {false && subItem.icon && (
+                        <span className="mr-2">
+                          {subItem.icon}
+                        </span>
+                      )}
                       {subItem.name}
                       <span className="flex items-center gap-1 ml-auto">
                         {subItem.new && (
@@ -562,7 +726,7 @@ const AppSidebar: React.FC = () => {
                 {isExpanded || isHovered || isMobileOpen ? (
                   "Menu"
                 ) : (
-                  <HorizontaLDots className="size-6" />
+                  <SquaresFour className="size-6" weight="fill" />
                 )}
               </h2>
               {renderMenuItems(filteredNavItems, "main")}
@@ -578,7 +742,7 @@ const AppSidebar: React.FC = () => {
                 {isExpanded || isHovered || isMobileOpen ? (
                   "Others"
                 ) : (
-                  <HorizontaLDots className="size-6" />
+                  <SquaresFour className="size-6" weight="fill" />
                 )}
               </h2>
               {renderMenuItems(filteredOthersItems, "others")}

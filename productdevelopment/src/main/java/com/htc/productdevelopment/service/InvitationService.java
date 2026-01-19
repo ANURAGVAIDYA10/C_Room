@@ -294,18 +294,18 @@ public class InvitationService {
             }
         }
 
-     // 🔥 FIX: If user already exists, update instead of inserting new row
-        Optional<User> existingUser = userService.getUserByEmail(email);
+        // 🔥 FIX: If user already exists in database, update instead of inserting new row
+        Optional<User> existingUserInDb = userService.getUserByEmail(email);
 
-        if (existingUser.isPresent()) {
-            User u = existingUser.get();
+        if (existingUserInDb.isPresent()) {
+            User u = existingUserInDb.get();
 
             // Update required fields
             u.setName(fullName);
             u.setActive(true);
 
             // Set UID from Firebase if missing
-            if (firebaseUser.getUid() != null) {
+            if (firebaseUser.getUid() != null && u.getUid() == null) {
                 u.setUid(firebaseUser.getUid());
             }
 
@@ -332,9 +332,38 @@ public class InvitationService {
             return u;
         }
         
-        // If user already exists in Firebase, don't create a new database entry
+        // 🔥 IMPROVED: If user already exists in Firebase but not in DB, link them to the invitation data
         if (userAlreadyExists) {
-            throw new Exception("User already exists in Firebase. Please sign in instead of creating a new account.");
+            // Create database user with Firebase UID and invitation data
+            User created = userService.saveUserToDB(
+                    firebaseUser.getUid(),
+                    email,
+                    fullName,
+                    parseRole(inv.getRole())
+            );
+
+            // Add department if present
+            if (inv.getDepartmentId() != null) {
+                created.setDepartment(userService.getDepartmentFromId(inv.getDepartmentId()));
+            }
+
+            // Add organization if present
+            if (inv.getOrganizationId() != null) {
+                created.setOrganization(userService.getOrganizationFromId(inv.getOrganizationId()));
+            } else if (inv.getRole() != null && inv.getRole().equals("SUPER_ADMIN")) {
+                // If role is SUPER_ADMIN and no organization is provided, assign to "Cost Room"
+                Organization costRoomOrg = organizationService.getOrCreateCostRoomOrganization();
+                created.setOrganization(costRoomOrg);
+            }
+
+            // Save updates
+            userService.updateUserById(created.getId(), created);
+
+            // Mark invitation used
+            inv.setUsed(true);
+            invitationRepository.save(inv);
+
+            return created;
         }
 
         // 2. Save in DB

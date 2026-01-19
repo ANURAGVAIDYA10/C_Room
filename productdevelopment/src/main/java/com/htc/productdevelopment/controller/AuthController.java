@@ -436,23 +436,30 @@ public class AuthController {
             if (userOpt.isPresent()) {
                 User user = userOpt.get();
                 
-                // Check if user exists in Firebase
-                boolean existsInFirebase = firebaseSyncService.doesUserExistInFirebase(user.getEmail());
-                
-                if (!existsInFirebase) {
-                    logger.warn("User with UID {} does not exist in Firebase", uid);
+                try {
+                    // Get Firebase user details to update user information
+                    com.google.firebase.auth.UserRecord firebaseUser = com.google.firebase.auth.FirebaseAuth.getInstance().getUser(uid);
+                    
+                    // Update user information with current Firebase data (especially name)
+                    User updatedUser = userService.updateUser(
+                        uid, 
+                        firebaseUser.getEmail(), 
+                        firebaseUser.getDisplayName()
+                    );
+                    
+                    // Return updated user data
+                    Map<String, Object> responseData = new HashMap<>();
+                    responseData.put("message", "User synced and updated successfully");
+                    responseData.put("user", updatedUser);
+                    
+                    logger.info("User synced and updated successfully for UID: {}", uid);
+                    return ResponseEntity.ok(responseData);
+                } catch (Exception updateException) {
+                    logger.error("Error updating user with UID: {}", uid, updateException);
                     Map<String, String> errorResponse = new HashMap<>();
-                    errorResponse.put("error", "User does not exist in Firebase");
+                    errorResponse.put("error", "Failed to update user: " + updateException.getMessage());
                     return ResponseEntity.badRequest().body(errorResponse);
                 }
-                
-                // Return user data
-                Map<String, Object> responseData = new HashMap<>();
-                responseData.put("message", "User synced successfully");
-                responseData.put("user", user);
-                
-                logger.info("User auto-sync completed successfully for UID: {}", uid);
-                return ResponseEntity.ok(responseData);
             } else {
                 // If user doesn't exist in database, create them with default role
                 logger.info("User with UID {} not found in database, creating new user with default role", uid);

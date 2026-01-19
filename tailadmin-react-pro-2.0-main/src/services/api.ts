@@ -93,7 +93,10 @@ export async function apiCall(endpoint: string, options: RequestInit = {}, useCa
         console.warn("Failed to parse error response:", parseError);
       }
       
-      throw new Error(errorMessage);
+      // Create error with status code for better error handling
+      const error = new Error(errorMessage);
+      (error as any).statusCode = response.status;
+      throw error;
     }
     
     // Check if response is JSON
@@ -270,11 +273,16 @@ export const invitationApi = {
     token: string; 
     email: string; 
     fullName: string; 
-    password: string 
+    password: string;
+    role?: string;
+    departmentId?: number | null;
+    organizationId?: number | null;
   }) => apiCall("/api/invitations/complete", {
     method: "POST",
     body: JSON.stringify(completionData),
   }),
+  
+
 };
 
 // Notification API functions

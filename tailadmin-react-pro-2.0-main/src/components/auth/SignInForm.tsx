@@ -137,6 +137,14 @@ export default function SignInForm() {
     setLoading(true);
     try {
       const provider = new OAuthProvider('microsoft.com');
+      // Use organizations endpoint for multi-tenant within organization
+      // This avoids the /common endpoint issue for single-tenant apps
+      provider.addScope('email');
+      provider.addScope('profile');
+      provider.addScope('openid');
+      provider.setCustomParameters({
+        tenant: 'organizations', // Use 'organizations' instead of 'common'
+      });
       const result = await signInWithPopup(auth, provider);
       console.log("Microsoft sign-in successful:", result.user);
       

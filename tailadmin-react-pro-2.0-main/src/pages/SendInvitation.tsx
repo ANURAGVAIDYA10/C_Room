@@ -223,7 +223,7 @@ export default function SendInvitation() {
         invitationData.organizationId = userOrganizationId;
       }
       
-      // First, create the invitation record in the database
+      // Create the invitation record in the database (without creating Firebase user)
       const response = await invitationApi.createFirebaseInvitation(invitationData);
       
       // Log the action code settings for debugging

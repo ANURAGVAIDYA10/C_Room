@@ -3,8 +3,6 @@ import { DropdownItem } from "../../ui/dropdown/DropdownItem";
 import { Dropdown } from "../../ui/dropdown/Dropdown";
 import { useNavigate } from "react-router";
 import { useAuth } from "../../../context/AuthContext"; // Adjust this import path based on your project structure
-import { auth } from "../../../firebase"; // Import Firebase auth
-import { signOut } from "firebase/auth"; // Import signOut function from Firebase
 import { IconDropdownButton } from "../../ui/IconDropdownButton";
 
 interface UserDropdownProps {
@@ -17,7 +15,7 @@ export default function UserDropdown({ isOpen, onToggle }: UserDropdownProps) {
   const [userAvatar, setUserAvatar] = useState<string>("/images/user/user-01.jpg");
   const [userDisplayName, setUserDisplayName] = useState<string>("User");
   const [userEmail, setUserEmail] = useState<string>("");
-  const { currentUser } = useAuth();
+  const { currentUser, signOut } = useAuth();
   const navigate = useNavigate();
 
   // Load user data from backend
@@ -60,7 +58,7 @@ export default function UserDropdown({ isOpen, onToggle }: UserDropdownProps) {
 
   const handleSignOut = async () => {
     try {
-      await signOut(auth);
+      await signOut();
       // Redirect to sign in page after successful sign out
       navigate("/"); // Change to home page or login page as appropriate
     } catch (error) {

@@ -1,124 +1,182 @@
-// CacheManager.ts
-// Centralized cache manager for API responses with request deduplication
+import { auth } from '../firebase';
 
-class CacheManager {
-  private cache: Map<string, { data: any; timestamp: number }>;
-  private pendingRequests: Map<string, Promise<any>>;
-  private defaultCacheDuration: number;
-
-  constructor(defaultCacheDuration: number = 5 * 60 * 1000) { // 5 minutes default
-    this.cache = new Map();
-    this.pendingRequests = new Map();
-    this.defaultCacheDuration = defaultCacheDuration;
-  }
-
-  // Generate a unique key for a request
-  private generateKey(url: string, options: RequestInit = {}): string {
-    return `${url}-${JSON.stringify(options)}`;
-  }
-
-  // Check if data is cached and still valid
-  private isCached(key: string, cacheDuration: number = this.defaultCacheDuration): boolean {
-    const cached = this.cache.get(key);
-    if (!cached) return false;
-    return Date.now() - cached.timestamp < cacheDuration;
-  }
-
-  // Get cached data
-  private getCachedData(key: string): any {
-    const cached = this.cache.get(key);
-    return cached ? cached.data : null;
-  }
-
-  // Cache data
-  private setCachedData(key: string, data: any): void {
-    this.cache.set(key, { data, timestamp: Date.now() });
-  }
-
-  // Check if there's a pending request
-  private hasPendingRequest(key: string): boolean {
-    return this.pendingRequests.has(key);
-  }
-
-  // Get pending request
-  private getPendingRequest(key: string): Promise<any> | undefined {
-    return this.pendingRequests.get(key);
-  }
-
-  // Set pending request
-  private setPendingRequest(key: string, promise: Promise<any>): void {
-    this.pendingRequests.set(key, promise);
-  }
-
-  // Remove pending request
-  private removePendingRequest(key: string): void {
-    this.pendingRequests.delete(key);
-  }
-
-  // Fetch data with caching and deduplication
-  async fetchWithCache(
-    url: string, 
-    options: RequestInit = {}, 
-    cacheDuration: number = this.defaultCacheDuration
-  ): Promise<any> {
-    const key = this.generateKey(url, options);
-
-    // Check if there's a pending request
-    if (this.hasPendingRequest(key)) {
-      console.log(`Deduplicating request for: ${url}`);
-      return this.getPendingRequest(key);
-    }
-
-    // Check cache
-    if (this.isCached(key, cacheDuration)) {
-      console.log(`Returning cached response for: ${url}`);
-      return this.getCachedData(key);
-    }
-
-    // Create new request
-    const requestPromise = fetch(url, options)
-      .then(response => {
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        return response.json().catch(() => response.text());
-      })
-      .then(data => {
-        // Cache the response
-        this.setCachedData(key, data);
-        return data;
-      })
-      .finally(() => {
-        // Clean up pending request
-        this.removePendingRequest(key);
-      });
-
-    // Store pending request
-    this.setPendingRequest(key, requestPromise);
-
-    return requestPromise;
-  }
-
-  // Clear cache for a specific key
-  clearCache(key: string): void {
-    this.cache.delete(key);
-  }
-
-  // Clear all cache
-  clearAllCache(): void {
-    this.cache.clear();
-  }
-
-  // Get cache stats
-  getCacheStats(): { cacheSize: number; pendingRequests: number } {
-    return {
-      cacheSize: this.cache.size,
-      pendingRequests: this.pendingRequests.size
-    };
-  }
+// Interface for user session data
+interface UserSession {
+  data: any;
+  timestamp: number;
+  expiresAt: number;
+  lastActivity: number;
 }
 
-// Export singleton instance
-export const cacheManager = new CacheManager();
+// Interface for user data
+export interface UserData {
+  role: string;
+  user: {
+    id: number;
+    uid: string;
+    email: string;
+    name: string;
+    avatar: string;
+    active: boolean;
+    createdAt: string;
+    updatedAt: string;
+    department?: {
+      id: number;
+      name: string;
+    };
+    organization?: {
+      id: number;
+      name: string;
+    };
+  };
+  department?: {
+    id: number;
+    name: string;
+  };
+  organization?: {
+    id: number;
+    name: string;
+  };
+}
 
-export default CacheManager;
+export class CacheManager {
+  private static readonly CACHE_DURATION = 15 * 60 * 1000; // 15 minutes
+  private static readonly STAGGER_OFFSET = 5 * 60 * 1000;  // 5 min buffer
+  
+  // Cache for general API responses
+  private static apiCache = new Map<string, { data: any; timestamp: number }>();
+  
+  /**
+   * Store user session data in localStorage
+   */
+  static storeUserSession(userId: string, data: UserData) {
+    const session: UserSession = {
+      data: data,
+      timestamp: Date.now(),
+      expiresAt: Date.now() + this.CACHE_DURATION,
+      lastActivity: Date.now()
+    };
+    localStorage.setItem(`user_session_${userId}`, JSON.stringify(session));
+  }
+  
+  /**
+   * Get cached session data
+   */
+  static getCachedSession(userId: string): UserData | null {
+    const cached = localStorage.getItem(`user_session_${userId}`);
+    if (cached) {
+      const session: UserSession = JSON.parse(cached);
+      if (Date.now() < session.expiresAt) {
+        return session.data;
+      }
+    }
+    return null;
+  }
+  
+  /**
+   * Check if cache needs refresh
+   */
+  static needsRefresh(userId: string): boolean {
+    const cached = localStorage.getItem(`user_session_${userId}`);
+    if (cached) {
+      const session: UserSession = JSON.parse(cached);
+      // Add user-specific offset to spread load
+      const userOffset = userId.charCodeAt(0) % this.STAGGER_OFFSET;
+      return Date.now() > (session.expiresAt - userOffset);
+    }
+    return true;
+  }
+  
+  /**
+   * Clear user session from cache
+   */
+  static clearSession(userId: string): void {
+    localStorage.removeItem(`user_session_${userId}`);
+  }
+  
+  /**
+   * Update last activity timestamp
+   */
+  static updateLastActivity(userId: string): void {
+    const cached = localStorage.getItem(`user_session_${userId}`);
+    if (cached) {
+      const session: UserSession = JSON.parse(cached);
+      session.lastActivity = Date.now();
+      localStorage.setItem(`user_session_${userId}`, JSON.stringify(session));
+    }
+  }
+  
+  /**
+   * Get last activity timestamp
+   */
+  static getLastActivity(userId: string): number | null {
+    const cached = localStorage.getItem(`user_session_${userId}`);
+    if (cached) {
+      const session: UserSession = JSON.parse(cached);
+      return session.lastActivity;
+    }
+    return null;
+  }
+  
+  /**
+   * Clear all expired sessions
+   */
+  static cleanupExpiredSessions(): void {
+    const now = Date.now();
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith('user_session_')) {
+        try {
+          const session: UserSession = JSON.parse(localStorage.getItem(key)!);
+          if (now > session.expiresAt) {
+            localStorage.removeItem(key);
+          }
+        } catch (e) {
+          // If parsing fails, remove the key
+          localStorage.removeItem(key);
+        }
+      }
+    });
+  }
+  
+  /**
+   * Generic fetch with cache functionality (for Jira API and other services)
+   */
+  static async fetchWithCache(url: string, options: RequestInit = {}, cacheDuration: number = 5 * 60 * 1000): Promise<any> {
+    const cacheKey = `${url}-${JSON.stringify(options)}`;
+    const cached = this.apiCache.get(cacheKey);
+    
+    if (cached && Date.now() - cached.timestamp < cacheDuration) {
+      console.log(`Returning cached response for ${url}`);
+      return cached.data;
+    }
+    
+    // Make the actual fetch request
+    const response = await fetch(url, options);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    // Store in cache
+    this.apiCache.set(cacheKey, { data, timestamp: Date.now() });
+    
+    return data;
+  }
+  
+  /**
+   * Clear API cache
+   */
+  static clearApiCache(): void {
+    this.apiCache.clear();
+  }
+  
+  /**
+   * Remove specific cache entry
+   */
+  static removeCacheEntry(url: string, options: RequestInit = {}): void {
+    const cacheKey = `${url}-${JSON.stringify(options)}`;
+    this.apiCache.delete(cacheKey);
+  }
+}

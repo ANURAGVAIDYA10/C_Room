@@ -2,7 +2,7 @@
 // Service for handling Jira API calls
 import { auth } from "../firebase";
 import { apiCall } from "./api";
-import { cacheManager } from "./CacheManager.ts";
+import { CacheManager } from "./CacheManager";
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
 
 const JIRA_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache duration
@@ -29,7 +29,7 @@ async function jiraApiCall(endpoint: string, options: RequestInit = {}, useCache
   
   // Use cache manager if caching is enabled
   if (useCache) {
-    return cacheManager.fetchWithCache(url, options, JIRA_CACHE_DURATION);
+    return CacheManager.fetchWithCache(url, options, JIRA_CACHE_DURATION);
   }
 
   const isFormData = options.body instanceof FormData;

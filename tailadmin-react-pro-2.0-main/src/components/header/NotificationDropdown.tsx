@@ -2,12 +2,12 @@ import { useState } from "react";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { Link } from "react-router";
-import { useNotifications } from "../../context/NotificationContext";
+import { useNotification } from "../../context/NotificationContext";
 
 export default function NotificationDropdown() {
   const [isOpen, setIsOpen] = useState(false);
   
-  const { notifications, unreadCount, markAsRead, markAllAsRead, clearAll } = useNotifications();
+  const { notifications, unreadCount, markAsRead, markAllAsRead, clearAll, refreshNotifications } = useNotification();
 
   function toggleDropdown() {
     setIsOpen(!isOpen);

@@ -181,7 +181,10 @@ const Renewal_vendor: React.FC = () => {
         setLoading(true);
         setError(null);
 
-        const resp = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/jira/contracts/completed`);
+        // Add credentials: 'include' to ensure JWT cookie is sent
+        const resp = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/jira/contracts/completed`, {
+          credentials: 'include'
+        });
         if (!resp.ok) {
           const txt = await resp.text().catch(() => "");
           throw new Error(`Failed to fetch: ${resp.status} ${resp.statusText} ${txt}`);
@@ -253,7 +256,10 @@ const Renewal_vendor: React.FC = () => {
 
     const checkIssueStatus = async (issueKey: string): Promise<string | null> => {
       try {
-        const resp = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/jira/issues/${encodeURIComponent(issueKey)}`);
+        // Add credentials: 'include' to ensure JWT cookie is sent
+        const resp = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/jira/issues/${encodeURIComponent(issueKey)}`, {
+          credentials: 'include'
+        });
         if (!resp.ok) {
           console.warn("checkIssueStatus non-ok", resp.status);
           return null;
@@ -274,7 +280,10 @@ const Renewal_vendor: React.FC = () => {
 
     const fetchContractForIssue = async (issueKey: string): Promise<ContractDetails[] | null> => {
       try {
-        const resp = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/jira/contracts/byIssueKey/${encodeURIComponent(issueKey)}`);
+        // Add credentials: 'include' to ensure JWT cookie is sent
+        const resp = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/jira/contracts/byIssueKey/${encodeURIComponent(issueKey)}`, {
+          credentials: 'include'
+        });
         if (!resp.ok) {
           console.warn("fetchContractForIssue non-ok", resp.status);
           return null;
@@ -348,7 +357,10 @@ const Renewal_vendor: React.FC = () => {
             } else {
               // fallback refresh
               try {
-                const resp = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/jira/contracts/completed`);
+                // Add credentials: 'include' to ensure JWT cookie is sent
+                const resp = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/jira/contracts/completed`, {
+                  credentials: 'include'
+                });
                 if (resp.ok) {
                   const data = await resp.json();
                   const mappedAll = Array.isArray(data) ? data.map(mapContractToRenewalItem) : [];
@@ -414,7 +426,10 @@ const Renewal_vendor: React.FC = () => {
       // Refresh list (and re-enrich)
       (async () => {
         try {
-          const resp = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/jira/contracts/completed`);
+          // Add credentials: 'include' to ensure JWT cookie is sent
+          const resp = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/jira/contracts/completed`, {
+            credentials: 'include'
+          });
           if (resp.ok) {
             const data: ContractDetails[] = await resp.json();
             const mappedAll = Array.isArray(data) ? data.map(mapContractToRenewalItem) : [];

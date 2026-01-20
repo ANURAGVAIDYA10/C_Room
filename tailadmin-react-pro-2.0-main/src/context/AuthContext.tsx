@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useState, ReactNode, useCallback 
 import { auth } from "../firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { userService } from "../services/userService";
+import { authApi } from "../services/api";
 import { Permission, hasPermission, hasAnyPermission, hasAllPermissions } from "../config/permissions";
 
 // Define the user data structure
@@ -45,6 +46,7 @@ interface AuthContextType {
   userOrganizationName: string | null;
   userData: UserData | null; // Full user data from backend
   loading: boolean;
+  sessionReady: boolean; // NEW: Flag to indicate session is ready
   isAdmin: boolean;
   isSuperAdmin: boolean;
   isApprover: boolean;
@@ -68,6 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [userOrganizationName, setUserOrganizationName] = useState<string | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null); // Full user data from backend
   const [loading, setLoading] = useState(true);
+  const [sessionReady, setSessionReady] = useState(false); // NEW: Track session readiness
   const [isAdmin, setIsAdmin] = useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isApprover, setIsApprover] = useState(false);
@@ -75,28 +78,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Function to refresh user data from backend
   const refreshUserData = useCallback(async () => {
-    if (currentUser?.uid) {
+    if (currentUser) {
       try {
-        console.log('AuthContext: Refreshing user data for uid=', currentUser.uid);
-        const userData = await userService.getUserData(currentUser.uid);
-        console.log('AuthContext: User data received=', userData);
-        setUserData(userData);
-        setUserRole(userData.role);
-        setUserDepartmentId(userData.department?.id || null);
-        setUserDepartmentName(userData.department?.name || null);
-        setUserOrganizationId(userData.organization?.id || null);
-        setUserOrganizationName(userData.organization?.name || null);
-        setIsAdmin(userData.role === 'ADMIN' || userData.role === 'SUPER_ADMIN');
-        setIsSuperAdmin(userData.role === 'SUPER_ADMIN');
-        setIsApprover(userData.role === 'APPROVER');
-        setIsRequester(userData.role === 'REQUESTER');
-        console.log('AuthContext: User role set to=', userData.role);
+        console.log('AuthContext: Refreshing user data for user=', currentUser.email);
+        // Since we're using JWT cookies, we don't need to pass the token
+        // Just make a request to get the current user data
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/auth/current-user`, {
+          credentials: 'include', // Include JWT cookie
+        });
+        
+        console.log('AuthContext: Current user API response status=', response.status);
+        
+        if (response.ok) {
+          const userData = await response.json();
+          console.log('AuthContext: User data received=', userData);
+          setUserData(userData);
+          setUserRole(userData.role);
+          setUserDepartmentId(userData.department?.id || null);
+          setUserDepartmentName(userData.department?.name || null);
+          setUserOrganizationId(userData.organization?.id || null);
+          setUserOrganizationName(userData.organization?.name || null);
+          setIsAdmin(userData.role === 'ADMIN' || userData.role === 'SUPER_ADMIN');
+          setIsSuperAdmin(userData.role === 'SUPER_ADMIN');
+          setIsApprover(userData.role === 'APPROVER');
+          setIsRequester(userData.role === 'REQUESTER');
+          console.log('AuthContext: User role set to=', userData.role);
+        } else {
+          console.error('AuthContext: Failed to get current user data, status=', response.status);
+          const errorText = await response.text();
+          console.error('AuthContext: Error response=', errorText);
+        }
       } catch (error) {
         console.error("Error refreshing user data:", error);
         throw error;
       }
     }
-  }, [currentUser?.uid]);
+  }, [currentUser]);
 
   // Memoized permission checking functions
   const memoizedHasRole = useCallback((role: string) => userRole === role, [userRole]);
@@ -107,41 +124,70 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     console.log('AuthContext: Setting up onAuthStateChanged listener');
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       console.log('AuthContext: onAuthStateChanged called with user=', user);
+      console.log('AuthContext: User email=', user?.email);
+      console.log('AuthContext: User uid=', user?.uid);
+      
       if (user) {
-        setCurrentUser(user);
-        // Handle async operations without making the callback itself async
-        (async () => {
-          try {
-            // Auto-sync user with default role if not already in database
-            await userService.autoSyncUser(user.uid);
+        try {
+          console.log('AuthContext: User is signed in, getting Firebase ID token...');
+          // Get Firebase ID token
+          const firebaseToken = await user.getIdToken();
+          console.log('AuthContext: Got Firebase token, length=', firebaseToken.length);
+          
+          console.log('AuthContext: Exchanging Firebase token for JWT session...');
+          // Exchange Firebase token for JWT session
+          const response = await authApi.exchangeFirebaseToken(firebaseToken);
+          console.log('AuthContext: Exchange response=', response);
+          
+          if (response && response.user) {
+            console.log('AuthContext: Token exchange successful');
+            // Set user data from response
+            setUserRole(response.user.role);
+            setUserData(response);
+            setCurrentUser(user);
             
-            // Get user role and data from backend
+            // Set role-based state
+            setIsAdmin(response.user.role === 'ADMIN' || response.user.role === 'SUPER_ADMIN');
+            setIsSuperAdmin(response.user.role === 'SUPER_ADMIN');
+            setIsApprover(response.user.role === 'APPROVER');
+            setIsRequester(response.user.role === 'REQUESTER');
+            
+            // Set department and organization info
+            setUserDepartmentId(response.user.department?.id || null);
+            setUserDepartmentName(response.user.department?.name || null);
+            setUserOrganizationId(response.user.organization?.id || null);
+            setUserOrganizationName(response.user.organization?.name || null);
+            
+            console.log('AuthContext: Authentication state updated successfully');
+            
+            // Force a refresh of the current user data to ensure everything is loaded
             await refreshUserData();
-          } catch (error) {
-            console.error("Error fetching user data:", error);
-            // Set default values if sync fails
-            setUserRole('REQUESTER');
-            setUserDepartmentId(null);
-            setUserDepartmentName(null);
-            setUserOrganizationId(null);
-            setUserOrganizationName(null);
-            setUserData(null);
-            setIsAdmin(false);
-            setIsSuperAdmin(false);
-            setIsApprover(false);
-            setIsRequester(true);
+            console.log('AuthContext: User data refreshed after authentication');
             
-            // Still set loading to false even if there's an error
-            console.log('AuthContext: Setting loading to false after error');
-          } finally {
-            // Only set loading to false after everything is done
-            console.log('AuthContext: Setting loading to false');
-            setLoading(false);
+            // SET SESSION READY - CRITICAL FOR PROPER API FLOW
+            setSessionReady(true);
+            console.log('AuthContext: Session ready set to true');
+          } else {
+            console.error('AuthContext: Failed to exchange token or invalid response:', response);
           }
-        })();
+        } catch (error) {
+          console.error('AuthContext: Error exchanging Firebase token:', error);
+          // Set default values if sync fails
+          setUserRole('REQUESTER');
+          setUserDepartmentId(null);
+          setUserDepartmentName(null);
+          setUserOrganizationId(null);
+          setUserOrganizationName(null);
+          setUserData(null);
+          setIsAdmin(false);
+          setIsSuperAdmin(false);
+          setIsApprover(false);
+          setIsRequester(true);
+        }
       } else {
+        console.log('AuthContext: User is signed out');
         setCurrentUser(null);
         setUserRole(null);
         setUserDepartmentId(null);
@@ -155,14 +201,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsRequester(false);
         // Clear login time when user logs out
         localStorage.removeItem('loginTime');
-        // Also set loading to false for logged out users
-        console.log('AuthContext: Setting loading to false');
-        setLoading(false);
+        
+        // CRITICAL: Set sessionReady to false on logout
+        setSessionReady(false);
+        console.log('AuthContext: Session ready set to false');
       }
+      
+      // Set loading to false after handling the user state
+      console.log('AuthContext: Setting loading to false');
+      setLoading(false);
     });
 
     return unsubscribe;
-  }, [refreshUserData]);
+  }, []);
 
   const value = {
     currentUser,
@@ -173,6 +224,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     userOrganizationName,
     userData,
     loading,
+    sessionReady, // EXPOSE sessionReady
     isAdmin,
     isSuperAdmin,
     isApprover,
@@ -187,13 +239,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={value}>
-      {loading ? (
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="text-lg">Loading...</div>
-        </div>
-      ) : (
-        children
-      )}
+      {children}
     </AuthContext.Provider>
   );
 }
@@ -201,8 +247,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
+    throw new Error('useAuth must be used within an AuthProvider');
   }
-  
   return context;
 }

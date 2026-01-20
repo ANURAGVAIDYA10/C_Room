@@ -27,16 +27,22 @@ export const jiraTransitionMap: Record<string, string> = {
 async function jiraApiCall(endpoint: string, options: RequestInit = {}, useCache = false) {
   const url = `${API_BASE_URL}${endpoint}`;
   
+  // Ensure credentials are included in all requests
+  const updatedOptions: RequestInit = {
+    ...options,
+    credentials: 'include', // This ensures JWT cookies are sent
+  };
+
   // Use cache manager if caching is enabled
   if (useCache) {
-    return cacheManager.fetchWithCache(url, options, JIRA_CACHE_DURATION);
+    return cacheManager.fetchWithCache(url, updatedOptions, JIRA_CACHE_DURATION);
   }
 
-  const isFormData = options.body instanceof FormData;
+  const isFormData = updatedOptions.body instanceof FormData;
 
   const headers: any = {
     Accept: "application/json",
-    ...(options.headers || {})
+    ...(updatedOptions.headers || {})
   };
 
   // ❌ DO NOT SET CONTENT-TYPE FOR FORMDATA
@@ -50,10 +56,11 @@ async function jiraApiCall(endpoint: string, options: RequestInit = {}, useCache
 
   try {
     const response = await fetch(url, {
-      method: options.method || "GET",
-      body: options.body,
+      method: updatedOptions.method || "GET",
+      body: updatedOptions.body,
       headers,
       signal: controller.signal,
+      credentials: 'include', // Also ensure credentials are included here
     });
 
     clearTimeout(timeoutId);

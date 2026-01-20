@@ -4,8 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { invitationApi, departmentApi, organizationApi, authApi } from "../services/api";
 import PageMeta from "../components/common/PageMeta";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
-import { sendSignInLinkToEmail } from "firebase/auth";
-import { auth } from "../firebase";
+import { sendFirebaseInvitationEmail } from "../services/firebaseEmailService";
 
 interface Department {
   id: number;
@@ -15,20 +14,6 @@ interface Department {
 interface Organization {
   id: number;
   name: string;
-}
-
-interface ActionCodeSettings {
-  url: string;
-  handleCodeInApp: boolean;
-  iOS?: {
-    bundleId: string;
-  };
-  android?: {
-    packageName: string;
-    installApp: boolean;
-    minimumVersion: string;
-  };
-  dynamicLinkDomain?: string;
 }
 
 export default function SendInvitation() {
@@ -232,64 +217,43 @@ export default function SendInvitation() {
       console.log('Complete URL:', `${window.location.origin}/complete-invitation?email=${encodeURIComponent(formData.email)}`);
 
       // Then, send the email link using Firebase Auth
-      const actionCodeSettings: ActionCodeSettings = {
-        // URL where the user will be redirected after clicking the email link
-        // Make sure this URL is authorized in Firebase Console
-        url: `${window.location.origin}/complete-invitation?email=${encodeURIComponent(formData.email)}`,
-        // Whether to handle the link in the app itself (true for mobile apps)
-        handleCodeInApp: true,
-        // iOS app bundle ID (if applicable)
-        // iOS: {
-        //   bundleId: 'com.example.ios'
-        // },
-        // Android app package name (if applicable)
-        // android: {
-        //   packageName: 'com.example.android',
-        //   installApp: true,
-        //   minimumVersion: '12'
-        // },
-        // Dynamic link domain (if using Firebase Dynamic Links)
-        // dynamicLinkDomain: 'example.page.link'
-      };      
-      // Send the sign-in link to the user's email
-      console.log('ActionCodeSettings:', actionCodeSettings);
-      await sendSignInLinkToEmail(auth, formData.email, actionCodeSettings)
-        .then(() => {
-          // Store email locally for verification when the link is clicked
-          window.localStorage.setItem('emailForSignIn', formData.email);
-          console.log('Email link sent successfully to:', formData.email);
-        })
-        .catch((error) => {
-          console.error('Error in sendSignInLinkToEmail:', error);
-          // Re-throw the error to be caught by the outer catch block
-          throw error;
-        });
+      const result = await sendFirebaseInvitationEmail(
+        formData.email, 
+        response.data.token, // Use the actual invitation token from backend
+        invitationData
+      );
+
+      if (result.success) {
+        // Store email locally for verification when the link is clicked
+        window.localStorage.setItem('emailForSignIn', formData.email);
+        console.log('Email link sent successfully to:', formData.email);
+        
+        // Show success toast
+        setToastMessage("Invitation sent successfully! The user will receive an email notification with instructions to complete their registration.");
+        setToastType('success');
+        setShowToast(true);
+        
+        // Reset form (but keep department selection for Admin users)
+        setFormData(prev => ({
+          ...prev,
+          email: "",
+          role: "REQUESTER",
+          departmentId: isSuperAdmin ? "" : (userDepartmentId ? userDepartmentId.toString() : ""),
+          organizationId: isSuperAdmin ? (userOrganizationId ? userOrganizationId.toString() : "") : ""
+        }));
+        
+        // Clear email validation
+        setEmailValidation(null);
+      } else {
+        throw new Error(result.message || 'Failed to send invitation email');
+      }
       
-      // Email is already stored in localStorage in the .then() block above
-      
-      // Show success toast
-      setToastMessage("Invitation sent successfully! The user will receive an email notification with instructions to complete their registration.");
-      setToastType('success');
-      setShowToast(true);
-      
-      // Reset form (but keep department selection for Admin users)
-      setFormData(prev => ({
-        ...prev,
-        email: "",
-        role: "REQUESTER",
-        departmentId: isSuperAdmin ? "" : (userDepartmentId ? userDepartmentId.toString() : ""),
-        organizationId: isSuperAdmin ? (userOrganizationId ? userOrganizationId.toString() : "") : ""
-      }));
-      
-      // Clear email validation
-      setEmailValidation(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error sending invitation:", error);
       // Show error toast
-      const firebaseError = error as { code?: string; message?: string };
       let errorMessage = "Failed to send invitation";
-      if (firebaseError.code) {
-        switch (firebaseError.code) {
+      if (error.code) {
+        switch (error.code) {
           case 'auth/invalid-email':
             errorMessage = "Invalid email address. Please check the email and try again.";
             break;
@@ -300,10 +264,10 @@ export default function SendInvitation() {
             errorMessage = "Invalid action code. Please try again.";
             break;
           default:
-            errorMessage = firebaseError.message || "Unknown Firebase error";
+            errorMessage = error.message || "Unknown Firebase error";
         }
       } else {
-        errorMessage = (error as Error).message;
+        errorMessage = error.message || "Unknown error occurred";
       }
       
       setToastMessage(errorMessage);
@@ -403,30 +367,20 @@ export default function SendInvitation() {
                 name="role"
                 value={formData.role}
                 onChange={handleInputChange}
+                required
                 className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:focus:border-blue-500 dark:focus:ring-blue-900"
               >
                 <option value="REQUESTER">Requester</option>
                 <option value="APPROVER">Approver</option>
-                {isSuperAdmin ? (
-                  <>
-                    <option value="ADMIN">Admin</option>
-                    <option value="SUPER_ADMIN">Super Admin</option>
-                  </>
-                ) : (
-                  <option value="ADMIN" disabled>
-                    Admin (SUPER_ADMIN only)
-                  </option>
-                )}
+                <option value="ADMIN">Admin</option>
+                {userRole === "SUPER_ADMIN" && <option value="SUPER_ADMIN">Super Admin</option>}
               </select>
-              {!isSuperAdmin && (
-                <p className="mt-1 text-xs text-gray-500">Higher roles available to SUPER_ADMIN users only.</p>
-              )}
             </div>
-            
+
             {/* Department Selection */}
             <div>
               <label htmlFor="departmentId" className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Department <span className="text-red-600">*</span>{isSuperAdmin ? "" : "(Auto-selected based on your department)"}
+                Department <span className="text-red-600">*</span>
               </label>
               <select
                 id="departmentId"
@@ -434,63 +388,51 @@ export default function SendInvitation() {
                 value={formData.departmentId}
                 onChange={handleInputChange}
                 required
-                disabled={!isSuperAdmin} // Disable for non-SUPER_ADMIN users
-                className={`w-full rounded-lg border bg-white px-4 py-2 text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:bg-gray-800 dark:text-white dark:focus:border-blue-500 dark:focus:ring-blue-900 ${!isSuperAdmin ? 'opacity-75 cursor-not-allowed' : ''}`}
+                className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:focus:border-blue-500 dark:focus:ring-blue-900"
               >
                 <option value="">Select Department</option>
-                {departments.map((dept) => (
-                  <option key={dept.id} value={dept.id}>
-                    {dept.name}
-                  </option>
+                {departments.map(dept => (
+                  <option key={dept.id} value={dept.id}>{dept.name}</option>
                 ))}
               </select>
-              {!isSuperAdmin ? (
-                <p className="mt-1 text-xs text-gray-500">Department is auto-selected based on your login credentials.</p>
-              ) : (
-                <p className="mt-1 text-xs text-gray-500"></p>
-              )}
             </div>
-            
-            {/* Organization Selection - Only visible to SUPER_ADMIN */}
-            {isSuperAdminMemo() && (
+
+            {/* Organization Selection (only for SUPER_ADMIN) */}
+            {userRole === "SUPER_ADMIN" && (
               <div>
                 <label htmlFor="organizationId" className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Organization <span className="text-red-600">*</span> 
+                  Organization <span className="text-red-600">*</span>
                 </label>
                 <select
                   id="organizationId"
                   name="organizationId"
                   value={formData.organizationId}
                   onChange={handleInputChange}
+                  required
                   className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:focus:border-blue-500 dark:focus:ring-blue-900"
                 >
-                  <option value="">Select Organization (Optional)</option>
-                  {organizations.map((org) => (
-                    <option key={org.id} value={org.id}>
-                      {org.name}
-                    </option>
+                  <option value="">Select Organization</option>
+                  {organizations.map(org => (
+                    <option key={org.id} value={org.id}>{org.name}</option>
                   ))}
                 </select>
               </div>
             )}
-            
-            <div>
+
+            <div className="flex justify-end space-x-4">
               <button
                 type="submit"
-                disabled={loading || (emailValidation ? emailValidation.checking : false)}
-                className="w-full rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 disabled:opacity-50 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800 inline-flex items-center justify-center"
+                disabled={loading}
+                className="rounded-lg bg-blue-600 px-6 py-2 font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 dark:bg-blue-500 dark:hover:bg-blue-600"
               >
-                {loading ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Sending...
-                  </>
-                ) : (
-                  "Send Invitation"
-                )}
+                {loading ? "Sending..." : "Send Invitation"}
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate(-1)}
+                className="rounded-lg border border-gray-300 px-6 py-2 font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+              >
+                Cancel
               </button>
             </div>
           </form>

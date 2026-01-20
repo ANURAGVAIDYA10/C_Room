@@ -5,7 +5,7 @@ import { auth } from "../firebase";
 const apiCache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache duration
 
-// Generic API call function with automatic Authorization header
+// Generic API call function that relies on JWT cookie authentication
 export async function apiCall(endpoint: string, options: RequestInit = {}, useCache = false) {
   // Check cache first if enabled
   const cacheKey = `${endpoint}-${JSON.stringify(options)}`;
@@ -17,26 +17,10 @@ export async function apiCall(endpoint: string, options: RequestInit = {}, useCa
     }
   }
 
-  // Get the current user's ID token
-  const user = auth.currentUser;
-  let idToken = null;
-  if (user) {
-    try {
-      idToken = await user.getIdToken();
-    } catch (error) {
-      console.error("Error getting ID token:", error);
-    }
-  }
-
-  // Prepare headers
+  // Prepare headers - no longer sending Firebase token, relying on JWT cookie
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
-
-  // Add Authorization header if we have a token
-  if (idToken) {
-    headers["Authorization"] = `Bearer ${idToken}`;
-  }
 
   // Merge with any existing headers
   Object.assign(headers, options.headers || {});
@@ -68,10 +52,11 @@ export async function apiCall(endpoint: string, options: RequestInit = {}, useCa
   const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
   
   try {
-    // Make the request with timeout
+    // Make the request with credentials to include JWT cookies
     const response = await fetch(url, {
       ...options,
       headers,
+      credentials: 'include', // This ensures JWT cookies are sent with requests
       signal: controller.signal
     });
 
@@ -91,6 +76,18 @@ export async function apiCall(endpoint: string, options: RequestInit = {}, useCa
       } catch (parseError: unknown) {
         // If parsing fails, use the status text
         console.warn("Failed to parse error response:", parseError);
+      }
+      
+      // If receiving 401, it means session expired
+      if (response.status === 401) {
+        // Only redirect to login if we were expecting the session to be valid
+        // If sessionReady is false, this might be the first API call before session is established
+        
+        // For now, let's make the redirect conditional to avoid premature redirects
+        // This will be handled by the component using the API instead of globally
+        console.warn('Received 401 - session may have expired');
+        // Don't redirect globally, let the calling component handle it
+        // window.location.href = '/auth/signin';
       }
       
       throw new Error(errorMessage);
@@ -310,6 +307,29 @@ export const notificationApi = {
 export const authApi = {
   // Check if user exists in Firebase or database by email
   checkUserExists: (email: string) => apiCall(`/api/auth/check-user-exists?email=${encodeURIComponent(email)}`),
+  
+  // Exchange Firebase token for JWT session - FIXED to use apiCall helper
+  exchangeFirebaseToken: async (firebaseToken: string) => {
+    return apiCall("/api/auth/exchange-token", {
+      method: 'POST',
+      body: JSON.stringify({ token: firebaseToken }),
+    });
+  },
+  
+  // Logout function
+  logout: async () => {
+    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/auth/logout`, {
+      method: 'POST',
+      credentials: 'include', // Include cookies for logout
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to logout');
+    }
+    
+    return response.json();
+  }
 };
 
-export default { userApi, departmentApi, organizationApi, invitationApi, notificationApi };
+export default { userApi, departmentApi, organizationApi, invitationApi, notificationApi, authApi };

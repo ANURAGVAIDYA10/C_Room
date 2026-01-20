@@ -61,7 +61,13 @@ class CacheManager {
     options: RequestInit = {}, 
     cacheDuration: number = this.defaultCacheDuration
   ): Promise<any> {
-    const key = this.generateKey(url, options);
+    // Ensure credentials are included in all requests
+    const updatedOptions: RequestInit = {
+      ...options,
+      credentials: 'include', // This ensures JWT cookies are sent
+    };
+
+    const key = this.generateKey(url, updatedOptions);
 
     // Check if there's a pending request
     if (this.hasPendingRequest(key)) {
@@ -76,7 +82,7 @@ class CacheManager {
     }
 
     // Create new request
-    const requestPromise = fetch(url, options)
+    const requestPromise = fetch(url, updatedOptions)
       .then(response => {
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);

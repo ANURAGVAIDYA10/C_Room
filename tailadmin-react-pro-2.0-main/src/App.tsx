@@ -1,3 +1,4 @@
+// src/App.tsx
 import { BrowserRouter as Router, Routes, Route, useNavigate, Navigate } from "react-router";
 import { AuthProvider } from "./context/AuthContext";
 import { NotificationProvider } from "./context/NotificationContext";
@@ -95,6 +96,8 @@ import RenewalVendor from "./main pages/Vendor Management/VendorRenewal/Renewal_
 import ProcurementRenewal from "./main pages/Procurement Request/procurement-renewal";
 
 export default function App() {
+  console.log('App: Component rendered');
+  
   const [isCreateIssueModalOpen, setIsCreateIssueModalOpen] = useState(false);
   const initialExistingContractIdRef = useRef<string | null>(null);
   
@@ -138,11 +141,30 @@ export default function App() {
       <Router>
         <ScrollToTop />
         <Routes>
-          {/* Root route - always redirect to signin */}
-          <Route path="/" element={<Navigate to="/signin" replace />} />
+          {/* Public Routes - No Auth Required */}
+          <Route path="/signin" element={<SignIn />} />
+          <Route path="/signup" element={<SignUp />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/two-step-verification" element={<TwoStepVerification />} />
           
-          {/* Dashboard Layout */}
+          {/* Alternative Layout - for special pages (public) */}
+          <Route element={<AlternativeLayout />}>
+            <Route path="/text-generator" element={<TextGeneratorPage />} />
+            <Route path="/image-generator" element={<ImageGeneratorPage />} />
+            <Route path="/code-generator" element={<CodeGeneratorPage />} />
+            <Route path="/video-generator" element={<VideoGeneratorPage />} />
+          </Route>
+          
+          {/* Protected Routes - Wrapped in AppLayout */}
           <Route element={<AppLayout />}>
+            {/* Root route - redirect to dashboard if authenticated, otherwise to signin */}
+            <Route path="/" element={
+              <ProtectedRoute>
+                <Navigate to="/ecommerce/dashboard" replace />
+              </ProtectedRoute>
+            } />
+            
+            {/* Dashboard Routes */}
             <Route path="/ecommerce/dashboard" element={<ProtectedRoute><Ecommerce /></ProtectedRoute>} />
             <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
             <Route path="/marketing" element={<ProtectedRoute><Marketing /></ProtectedRoute>} />
@@ -238,31 +260,13 @@ export default function App() {
             <Route path="/pie-chart" element={<ProtectedRoute><PieChart /></ProtectedRoute>} />
           </Route>
 
-          {/* Alternative Layout - for special pages */}
-          <Route element={<AlternativeLayout />}>
-            {/* AI Generator */}
-            <Route path="/text-generator" element={<TextGeneratorPage />} />
-            <Route path="/image-generator" element={<ImageGeneratorPage />} />
-            <Route path="/code-generator" element={<CodeGeneratorPage />} />
-            <Route path="/video-generator" element={<VideoGeneratorPage />} />
-          </Route>
-
-          {/* Auth Layout */}
-          <Route path="/signin" element={<SignIn />} />
-          <Route path="/signup" element={<SignUp />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route
-            path="/two-step-verification"
-            element={<TwoStepVerification />}
-          />
-
-          {/* Fallback Route */}
-          <Route path="*" element={<NotFound />} />
+          {/* Fallback Routes */}
           <Route path="/maintenance" element={<Maintenance />} />
           <Route path="/success" element={<Success />} />
           <Route path="/five-zero-zero" element={<FiveZeroZero />} />
           <Route path="/five-zero-three" element={<FiveZeroThree />} />
           <Route path="/coming-soon" element={<ComingSoon />} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
         <CreateIssueModal
           isOpen={isCreateIssueModalOpen}

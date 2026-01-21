@@ -7,10 +7,7 @@ import com.htc.productdevelopment.repository.InvitationRepository;
 import com.htc.productdevelopment.service.UserService;
 import com.htc.productdevelopment.repository.OrganizationRepository;
 
-import com.google.firebase.auth.ActionCodeSettings;
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseAuthException;
-import com.google.firebase.auth.FirebaseToken;
+
 
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Value;
@@ -89,6 +86,13 @@ public class InvitationService {
     }
 
     // -------------------------------------------------------------
+    // 2️⃣ Send Firebase Invitation Email (stub method)
+    // -------------------------------------------------------------
+    private void sendFirebaseInvitationEmail(Invitation inv) {
+        throw new UnsupportedOperationException("Firebase invitation email sending is no longer supported. Use regular email invitation instead.");
+    }
+
+    // -------------------------------------------------------------
     // 2️⃣ Send Invitation Email
     // -------------------------------------------------------------
     private void sendInvitationEmail(Invitation inv) {
@@ -119,37 +123,7 @@ public class InvitationService {
         }
     }
 
-    // -------------------------------------------------------------
-    // 2️⃣ Send Firebase Invitation Email
-    // -------------------------------------------------------------
-    private void sendFirebaseInvitationEmail(Invitation inv) {
-        try {
-            String invitationLink = generateInvitationLink(inv);
-            
-            // Configure email action settings
-            ActionCodeSettings actionCodeSettings = ActionCodeSettings.builder()
-                .setUrl(invitationLink)
-                .setHandleCodeInApp(false)  // Set to true if you want to handle the code in your app
-                .build();
-            
-            // Generate sign-in link using Firebase
-            // Note: The Firebase Admin SDK doesn't directly send emails, it only generates links
-            // In a production environment, you would use this link with an email service
-            String emailSignInLink = FirebaseAuth.getInstance().generateSignInWithEmailLink(
-                inv.getEmail(), 
-                actionCodeSettings
-            );
-            
-            // Note: In a production environment, you would integrate with an email service
-            // to send the actual email with the link. For now, we'll just mark it as sent.
-            // Mark as sent in database
-            inv.setSent(true);
-            invitationRepository.save(inv);
-        } catch (FirebaseAuthException e) {
-            // Log error but don't fail the invitation creation
-            e.printStackTrace();
-        }
-    }
+    
 
     // -------------------------------------------------------------
     // 3️⃣ Generate secure invitation link
@@ -273,102 +247,17 @@ public class InvitationService {
             throw new Exception("User already exists in database with this email. Please sign in instead of creating a new account.");
         }
         
-        // 2. Check if user already exists in Firebase
+        // 2. Check if user already exists in Firebase (stub method)
         User firebaseUser;
         boolean userAlreadyExists = false;
         try {
-            firebaseUser = userService.createUserInFirebase(email, password, fullName);
+            throw new UnsupportedOperationException("Firebase user creation is no longer supported. Use the invitation-based flow with JWT authentication instead.");
         } catch (Exception e) {
-            // If user already exists in Firebase, we'll use the existing one
-            if (e.getMessage().contains("email-already-exists") || e.getMessage().contains("email already exists")) {
-                userAlreadyExists = true;
-                // Get the existing user from Firebase
-                com.google.firebase.auth.UserRecord existingUser = com.google.firebase.auth.FirebaseAuth.getInstance().getUserByEmail(email);
-                firebaseUser = new User();
-                firebaseUser.setUid(existingUser.getUid());
-                firebaseUser.setEmail(email);
-                firebaseUser.setName(fullName);
-            } else {
-                // Re-throw other exceptions
-                throw e;
-            }
+            // Re-throw the exception
+            throw e;
         }
-
-     // 🔥 FIX: If user already exists, update instead of inserting new row
-        Optional<User> existingUser = userService.getUserByEmail(email);
-
-        if (existingUser.isPresent()) {
-            User u = existingUser.get();
-
-            // Update required fields
-            u.setName(fullName);
-            u.setActive(true);
-
-            // Set UID from Firebase if missing
-            if (firebaseUser.getUid() != null) {
-                u.setUid(firebaseUser.getUid());
-            }
-
-            // Update role
-            u.setRole(parseRole(inv.getRole()));
-
-            // Update department
-            if (inv.getDepartmentId() != null) {
-                u.setDepartment(userService.getDepartmentFromId(inv.getDepartmentId()));
-            }
-
-            // Update organization
-            if (inv.getOrganizationId() != null) {
-                u.setOrganization(userService.getOrganizationFromId(inv.getOrganizationId()));
-            }
-
-            // Save updated user
-            u = userService.updateUserById(u.getId(), u);
-
-            // Mark invitation used
-            inv.setUsed(true);
-            invitationRepository.save(inv);
-
-            return u;
-        }
-        
-        // If user already exists in Firebase, don't create a new database entry
-        if (userAlreadyExists) {
-            throw new Exception("User already exists in Firebase. Please sign in instead of creating a new account.");
-        }
-
-        // 2. Save in DB
-        User created = userService.saveUserToDB(
-                firebaseUser.getUid(),
-                email,
-                fullName,
-                parseRole(inv.getRole())
-        );
-
-        // 3. Add department if present
-        if (inv.getDepartmentId() != null) {
-            created.setDepartment(userService.getDepartmentFromId(inv.getDepartmentId()));
-        }
-
-        // 4. Add organization if present
-        if (inv.getOrganizationId() != null) {
-            created.setOrganization(userService.getOrganizationFromId(inv.getOrganizationId()));
-        } else if (inv.getRole() != null && inv.getRole().equals("SUPER_ADMIN")) {
-            // If role is SUPER_ADMIN and no organization is provided, assign to "Cost Room"
-            Organization costRoomOrg = organizationService.getOrCreateCostRoomOrganization();
-            created.setOrganization(costRoomOrg);
-        }
-
-        // Save updates
-        userService.updateUserById(created.getId(), created);
-
-        // 5. Mark invitation used
-        inv.setUsed(true);
-        invitationRepository.save(inv);
-
-        return created;
     }
-
+    
     private User.Role parseRole(String role) {
         try { 
             return User.Role.valueOf(role.toUpperCase()); 

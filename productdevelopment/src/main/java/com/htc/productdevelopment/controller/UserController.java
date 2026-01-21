@@ -134,15 +134,8 @@ public class UserController {
             String name = userData.getName();
             User.Role role = userData.getRole() != null ? userData.getRole() : User.Role.REQUESTER;
             
-            // Create user in Firebase and sync to database
-            User created = userService.createUserWithRole(
-                email, 
-                "defaultPassword123", // Default password - should be changed by user
-                name, 
-                role
-            );
-
-            return ResponseEntity.ok(created);
+            // Firebase user creation is no longer supported
+            throw new UnsupportedOperationException("Firebase user creation is no longer supported. Use the invitation-based flow with JWT authentication instead.");
         } catch (Exception e) {
             logger.error("Error creating user", e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));

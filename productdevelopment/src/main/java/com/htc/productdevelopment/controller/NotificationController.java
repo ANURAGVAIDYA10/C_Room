@@ -5,8 +5,8 @@ import com.htc.productdevelopment.repository.NotificationRepository;
 import com.htc.productdevelopment.service.NotificationService;
 import com.htc.productdevelopment.service.UserService;
 import com.htc.productdevelopment.model.User;
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseToken;
+import com.htc.productdevelopment.utils.JwtUtil;
+import com.htc.productdevelopment.utils.CookieUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -14,7 +14,6 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.ServletException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,24 +22,22 @@ import java.util.Map;
 @RequestMapping("/api/notifications")
 public class NotificationController {
     
-    private User getCurrentUserFromToken() throws ServletException {
+    private User getCurrentUserFromToken() {
         try {
             // Get the current HTTP request
             ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.currentRequestAttributes();
             HttpServletRequest request = attributes.getRequest();
             
-            // Get the Authorization header
-            String authHeader = request.getHeader("Authorization");
+            // Get JWT token from cookie
+            String jwtToken = cookieUtil.getJwtFromCookies(request);
             
-            if (authHeader != null && authHeader.startsWith("Bearer ")) {
-                String idToken = authHeader.substring(7); // Remove "Bearer " prefix
-                
-                // Verify the Firebase ID token
-                FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(idToken);
-                String uid = decodedToken.getUid();
-                
-                // Look up user in database
-                return userService.getUserByUid(uid).orElse(null);
+            if (jwtToken != null && !jwtToken.isEmpty()) {
+                // Validate JWT token and get email
+                String email = jwtUtil.getUsernameFromToken(jwtToken);
+                if (email != null && jwtUtil.validateToken(jwtToken, email)) {
+                    // Look up user in database
+                    return userService.getUserByEmail(email).orElse(null);
+                }
             }
         } catch (Exception e) {
             // Log the error but don't throw it
@@ -58,6 +55,12 @@ public class NotificationController {
     
     @Autowired
     private NotificationRepository notificationRepository;
+    
+    @Autowired
+    private JwtUtil jwtUtil;
+    
+    @Autowired
+    private CookieUtil cookieUtil;
     
     /**
      * Get all notifications (visible to everyone)

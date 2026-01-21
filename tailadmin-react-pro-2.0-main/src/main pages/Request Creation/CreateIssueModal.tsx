@@ -20,7 +20,7 @@ function normalizeVendorType(
     t.includes('usage') ||
     t.includes('consumption') ||
     t.includes('credits') ||
-    t.includes('minute') || 
+    t.includes('minute') ||
     t.includes('volume') ||
     t.includes('pay as you go') ||
     t.includes('usage based')
@@ -162,6 +162,11 @@ const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
   const dueDateRef = useRef<HTMLInputElement | null>(null);
   const renewalDateRef = useRef<HTMLInputElement | null>(null);
 
+  // Add these constants after line 154
+  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB in bytes
+  const ALLOWED_FILE_TYPES = ['application/pdf', 'image/jpeg', 'image/jpg'];
+  const ALLOWED_EXTENSIONS = ['.pdf', '.jpg', '.jpeg'];
+
   useEffect(() => {
     if (isOpen && userData && userData.user && currentUser) {
       setRequesterName(userData.user.name || '');
@@ -171,7 +176,7 @@ const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
       setShowSuccess(false);
     }
   }, [isOpen, userData, currentUser]);
-  
+
   useEffect(() => {
     if (!isOpen) return;
     if (initialContractType) setContractType(initialContractType);
@@ -199,16 +204,16 @@ const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, contractType, initialContractType, initialExistingContractId, existingContracts.length]);
-  
+
   // Effect to set selected contract ID after contracts are loaded when initial ID is provided
   useEffect(() => {
-    if (isOpen && initialContractType === 'existing' && initialExistingContractId && 
-        existingContracts.length > 0 && !selectedExistingContractId) {
+    if (isOpen && initialContractType === 'existing' && initialExistingContractId &&
+      existingContracts.length > 0 && !selectedExistingContractId) {
       // Set the selected contract ID after contracts are loaded
       setSelectedExistingContractId(initialExistingContractId);
     }
   }, [isOpen, initialContractType, initialExistingContractId, existingContracts.length, selectedExistingContractId]);
-  
+
   // Effect to populate form when existing contracts are loaded and initial contract ID is set
   useEffect(() => {
     if (isOpen && initialContractType === 'existing' && initialExistingContractId && existingContracts.length > 0) {
@@ -304,7 +309,7 @@ const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
       if (contractType !== 'new') return;
       try {
         setLoadingVendors(true);
-        
+
         console.log('Fetching vendors from VendorProfile system');
         const list = await jiraService.getVendorProfilesVendors();
         console.log('Received vendors:', list);
@@ -322,10 +327,10 @@ const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
     const loadProducts = async () => {
       if (!vendorName || contractType !== 'new') return;
 
-     
+
       try {
         setLoadingProducts(true);
-        
+
         console.log('Fetching products for vendor:', vendorName);
         const vendorProfiles = await jiraService.getVendorProfileDTOsByName(vendorName);
         console.log('Received vendor profiles:', vendorProfiles);
@@ -787,15 +792,15 @@ const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
 
       // Close modal immediately after success
       onClose();
-      
+
       // Navigate with success state
       navigate('/request-management/all-open', { state: { toastMessage: 'Request successfully created', toastType: 'success' } });
     } catch (err) {
       console.error('Create failed', err);
-      
+
       // Close modal and navigate with error state
       onClose();
-      
+
       // Navigate with error state
       navigate('/request-management/all-open', { state: { toastMessage: 'Failed to create request. Please try again.', toastType: 'error' } });
     } finally {
@@ -1037,7 +1042,7 @@ const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
                           onClick={() => {
                             setProductName(p.productName);
                             setShowProductDropdown(false);
-                       
+
                             if (p.productType) {
                               setProductType(p.productType);
                               setVendorContractType(p.productType);
@@ -1547,13 +1552,68 @@ const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
                     </svg>
                     <p className="text-sm font-medium text-gray-700 mb-1">Click to upload files</p>
                     <p className="text-xs text-gray-500">or drag and drop files here</p>
-                    <p className="text-xs text-gray-400 mt-1">Supports all file types</p>
+                    <p className="text-xs text-gray-400 mt-1">Supports: PDF, JPG, JPEG (Max 10MB each)</p>
                   </div>
-                  <input
+
+                  {errorMessage && (
+                    <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md">
+                      <p className="text-sm text-red-700 whitespace-pre-line">{errorMessage}</p>
+                    </div>
+                  )}
+                  {/* <input
                     id="attachments-input"
                     type="file"
                     multiple
                     onChange={(e) => setAttachments(Array.from(e.target.files || []))}
+                    className="hidden"
+                  /> */}
+
+                  <input
+                    id="attachments-input"
+                    type="file"
+                    multiple
+                    accept=".pdf,.jpg,.jpeg,image/jpeg,application/pdf"
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || []);
+                      const validFiles: File[] = [];
+                      const invalidFiles: string[] = [];
+
+                      files.forEach(file => {
+                        // Check file type by extension
+                        const fileExtension = '.' + file.name.toLowerCase().split('.').pop();
+                        const isValidType = ALLOWED_FILE_TYPES.includes(file.type) ||
+                          ALLOWED_EXTENSIONS.includes(fileExtension);
+
+                        // Check file size
+                        const isValidSize = file.size <= MAX_FILE_SIZE;
+
+                        if (isValidType && isValidSize) {
+                          validFiles.push(file);
+                        } else {
+                          let errorMsg = `${file.name}: `;
+                          if (!isValidType) {
+                            errorMsg += `Invalid file type. Only PDF, JPG, JPEG allowed.`;
+                          }
+                          if (!isValidSize) {
+                            errorMsg += `File too large (max 10MB).`;
+                          }
+                          invalidFiles.push(errorMsg);
+                        }
+                      });
+
+                      // Show error messages for invalid files
+                      if (invalidFiles.length > 0) {
+                        setErrorMessage(invalidFiles.join('\n'));
+                        setShowErrorToast(true);
+                        // Don't add invalid files to attachments
+                      } else {
+                        setErrorMessage('');
+                        setShowErrorToast(false);
+                      }
+
+                      // Update attachments state with only valid files
+                      setAttachments(prev => [...prev, ...validFiles]);
+                    }}
                     className="hidden"
                   />
                 </div>
@@ -1608,7 +1668,7 @@ const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
               </div>
             </>
           )}
-      </div>
+        </div>
 
         <div className="flex items-center gap-3 mt-6 px-6 py-4 bg-gray-50 border-t border-gray-200 sm:justify-end">
           <button
@@ -1639,9 +1699,9 @@ const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
             )}
           </button>
         </div>
-      
-    </Modal>
-  </>
+
+      </Modal>
+    </>
   );
 };
 

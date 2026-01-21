@@ -872,3 +872,26 @@ pre[class*="language-"] {
 pre[class*="language-"].line-numbers {
   padding-left: 2.8em !important;
 }
+
+
+.custom-calendar-icon-iconoir {
+  color: red;
+  border: 1px solid yellow;
+  border-radius: 4px;
+  padding: 2px;
+}
+
+
+.custom-calendar-icon-phospor {
+  color: rgb(0, 255, 191);
+  border: 1px solid rgb(28, 0, 128);
+  border-radius: 4px;
+  padding: 2px;
+}
+
+.custom-calendar-icon-google {
+  color: rgb(192, 54, 162);
+  border: 1px solid rgb(128, 0, 0);
+  border-radius: 4px;
+  padding: 2px;
+}

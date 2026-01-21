@@ -74,8 +74,8 @@ const VendorList: React.FC = () => {
   const [vendorName, setVendorName] = useState("");
   const [vendorProductName, setVendorProductName] = useState("");
   const [vendorProductLink, setVendorProductLink] = useState("");
-  const [vendorProductType, setVendorProductType] = useState<"License Based" | "Usage Based">(
-    "License Based"
+  const [vendorProductType, setVendorProductType] = useState<"license" | "usage">(
+    "license"
   );
 
   const [addSuccess, setAddSuccess] = useState(false);
@@ -160,7 +160,7 @@ const VendorList: React.FC = () => {
     setVendorName("");
     setVendorProductName("");
     setVendorProductLink("");
-    setVendorProductType("License Based");
+    setVendorProductType("license");
     // Reset autocomplete state
     setVendorSuggestions([]);
     setShowVendorSuggestions(false);
@@ -172,7 +172,7 @@ const VendorList: React.FC = () => {
     setVendorName("");
     setVendorProductName("");
     setVendorProductLink("");
-    setVendorProductType("License Based");
+    setVendorProductType("license");
   };
 
   // Add this function to open the vendor modal
@@ -1081,12 +1081,12 @@ const VendorList: React.FC = () => {
                 id="product-type"
                 value={vendorProductType}
                 onChange={(e) =>
-                  setVendorProductType(e.target.value as "License Based" | "Usage Based")
+                  setVendorProductType(e.target.value as "license" | "usage")
                 }
                 className="h-10 w-full rounded border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 focus:border-indigo-300 focus:outline-hidden focus:ring-1 focus:ring-indigo-500/10"
               >
-                <option value="License Based">License Based</option>
-                <option value="Usage Based">Usage Based</option>
+                <option value="license">license</option>
+                <option value="usage">usage</option>
               </select>
             </div>
 

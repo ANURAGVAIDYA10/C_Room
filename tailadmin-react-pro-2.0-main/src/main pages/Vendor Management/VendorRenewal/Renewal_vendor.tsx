@@ -559,11 +559,14 @@ const Renewal_vendor: React.FC = () => {
                     const contract = rows.find(r => r.id === selectedContractId);
                     if (contract) {
                       // Dispatch event to open CreateIssueModal with existing contract
-                      const contractId = contract.originalContract.id || 
-                                        contract.originalContract.existingContractId || 
+                      const contractId = contract.originalContract.id?.toString() || 
+                                        contract.originalContract.existingContractId?.toString() || 
                                         contract.id.replace('C-', '');
                       window.dispatchEvent(new CustomEvent('openCreateModal', { 
-                        detail: { existingContractId: contractId } 
+                        detail: { 
+                          existingContractId: contractId,
+                          initialContractType: 'existing'
+                        } 
                       }));
                     }
                   }
@@ -704,11 +707,14 @@ const Renewal_vendor: React.FC = () => {
     <PrimaryButton
       onClick={() => {
         // Dispatch event to open CreateIssueModal with existing contract
-        const contractId = r.originalContract.id || 
-                          r.originalContract.existingContractId || 
+        const contractId = r.originalContract.id?.toString() || 
+                          r.originalContract.existingContractId?.toString() || 
                           r.id.replace('C-', '');
         window.dispatchEvent(new CustomEvent('openCreateModal', { 
-          detail: { existingContractId: contractId } 
+          detail: { 
+            existingContractId: contractId,
+            initialContractType: 'existing'
+          } 
         }));
       }}
       className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 text-xs"

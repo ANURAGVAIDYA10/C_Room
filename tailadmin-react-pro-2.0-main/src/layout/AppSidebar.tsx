@@ -4,24 +4,17 @@ import { Link, useLocation, useNavigate } from "react-router";
 // Assume these icons are imported from an icon library
 import {
   AiIcon,
-  BoxCubeIcon,
   CalenderIcon,
-  CallIcon,
   CartIcon,
-  ChatIcon,
-  ChevronDownIcon,
   DocsIcon,
   FolderIcon,
   GridIcon,
   HorizontaLDots,
   ListIcon,
-  MailIcon,
   PageIcon,
   PieChartIcon,
-  PlugInIcon,
   TableIcon,
   TaskIcon,
-  UserCircleIcon,
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
 import { useAuth } from "../context/AuthContext";
@@ -78,7 +71,7 @@ const navItems: NavItem[] = [
     icon: <GridIcon />,
     name: "Dashboard",
     subItems: [
-      { name: "Ecommerce", path: "/", pro: false },
+      { name: "Ecommerce", path: "/ecommerce/dashboard", pro: false },
       { name: "Analytics", path: "/analytics", pro: false },
       { name: "Marketing", path: "/marketing", pro: false },
       { name: "CRM", path: "/crm", pro: false },

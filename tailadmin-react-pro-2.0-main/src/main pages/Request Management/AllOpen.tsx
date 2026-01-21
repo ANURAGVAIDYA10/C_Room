@@ -35,7 +35,7 @@ interface JiraField {
   clauseNames: string[];
 }
 
-interface Issue {
+interface JiraIssue {
   id: string;
   key: string;
   fields: {
@@ -93,7 +93,7 @@ const AllOpen: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   
   // --- Data state
-  const [issues, setIssues] = useState<Issue[]>([]);
+  const [issues, setIssues] = useState<JiraIssue[]>([]);
   const [page, setPage] = useState(0);
   const [pageSize] = useState(50);
   const [total, setTotal] = useState(0);
@@ -104,7 +104,7 @@ const AllOpen: React.FC = () => {
   
   const navigate = useNavigate();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
+  const [selectedIssue, setSelectedIssue] = useState<JiraIssue | null>(null);
 
   // Toast system
   const [toasts, setToasts] = useState<{ id: string; message: string; type?: ToastType }[]>([]);
@@ -247,7 +247,7 @@ const AllOpen: React.FC = () => {
         // issues
         try {
           console.log("Calling getAllIssues with:", { userRole, userOrganizationId, userDepartmentId });
-          const resp = await jiraService.getAllIssues(userRole, userOrganizationId, userDepartmentId, page, pageSize);
+          const resp = await jiraService.getAllIssues(userRole, userOrganizationId, userDepartmentId);
           console.log("Received response from getAllIssues:", resp);
           
           const payload = Array.isArray(resp)

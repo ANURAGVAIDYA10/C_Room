@@ -176,17 +176,13 @@ const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
     if (initialContractType) setContractType(initialContractType);
     else setContractType('');
     if (initialContractType === 'existing' && initialExistingContractId) {
+      // Set contract type to 'existing'
+      setContractType('existing');
       // Don't set the selectedExistingContractId immediately
-      // Wait until contracts are loaded, then set it
-      if (existingContracts.length === 0) {
-        fetchExistingContracts();
-      } else {
-        // Contracts are already loaded, set the selected ID
-        setSelectedExistingContractId(initialExistingContractId);
-      }
+      // Wait until contracts are loaded or fetch specific contract
     }
     else if (!initialExistingContractId) setSelectedExistingContractId('');
-  }, [isOpen, initialContractType, initialExistingContractId, existingContracts.length]);
+  }, [isOpen, initialContractType, initialExistingContractId]);
 
   useEffect(() => {
     if (isOpen && contractType === 'existing') {
@@ -210,14 +206,20 @@ const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
   
   // Effect to populate form when existing contracts are loaded and initial contract ID is set
   useEffect(() => {
-    if (isOpen && initialContractType === 'existing' && initialExistingContractId && existingContracts.length > 0) {
-      // Find the contract with the initial ID and populate the form
-      const contract = existingContracts.find(c => c.id === initialExistingContractId);
-      if (contract) {
+    if (isOpen && initialContractType === 'existing' && initialExistingContractId) {
+      // Check if the contract is already in our existingContracts list
+      const contractInList = existingContracts.find(c => c.id === initialExistingContractId);
+      if (contractInList) {
+        // Contract is already loaded, just select it
         setSelectedExistingContractId(initialExistingContractId);
+      } else {
+        // Contract not in list, fetch it specifically
+        fetchSpecificContract(initialExistingContractId);
       }
     }
   }, [isOpen, initialContractType, initialExistingContractId, existingContracts.length]);
+
+
 
   const fetchExistingContracts = async () => {
     try {
@@ -293,6 +295,169 @@ const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
       }
     } catch (err) {
       console.error('Error fetching existing contracts', err);
+    } finally {
+      setLoadingExistingContracts(false);
+    }
+  };
+  
+  // Function to fetch a specific contract by ID
+  const fetchSpecificContract = async (contractId: string) => {
+    try {
+      setLoadingExistingContracts(true);
+      
+      // Try to get contract by ID
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/jira/contracts/${encodeURIComponent(contractId)}`);
+      
+      if (!response.ok) {
+        // If the specific endpoint doesn't exist, try to fetch all and filter
+        console.warn(`Contract by ID endpoint not found, trying to fetch from all contracts`);
+        
+        // Fallback: fetch all contracts and find by ID
+        const allResponse = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/jira/contracts/completed`);
+        if (!allResponse.ok) {
+          throw new Error(`Failed to fetch all contracts: ${allResponse.status}`);
+        }
+        
+        const allData: any[] = await allResponse.json();
+        const contract = allData.find(c => 
+          String(c.id) === contractId || 
+          String(c.contractId) === contractId ||
+          String(c.existingContractId) === contractId
+        );
+        
+        if (contract) {
+          // Map the found contract to ExistingContract format
+          const rawType =
+            contract.vendorContractType ||
+            contract.billingType ||
+            contract.billing_type ||
+            contract.contractBilling ||
+            contract.vendor_contract_type ||
+            '';
+          
+          const normalizedType = normalizeVendorType(rawType);
+          
+          let vendorUsage: number | undefined;
+          
+          if (normalizedType === 'usage') {
+            const usageVal =
+              contract.currentUsageCount ??
+              contract.newUsageCount ??
+              null;
+            
+            if (usageVal !== null && usageVal !== undefined) {
+              vendorUsage = Number(usageVal);
+            }
+          } else if (normalizedType === 'license') {
+            const licenseVal =
+              contract.currentLicenseCount ??
+              contract.newLicenseCount ??
+              null;
+            
+            if (licenseVal !== null && licenseVal !== undefined) {
+              vendorUsage = Number(licenseVal);
+            }
+          } else {
+            const anyVal =
+              contract.currentUsageCount ??
+              contract.currentLicenseCount ??
+              contract.newUsageCount ??
+              contract.newLicenseCount ??
+              null;
+            
+            if (anyVal !== null && anyVal !== undefined) {
+              vendorUsage = Number(anyVal);
+            }
+          }
+          
+          const specificContract: ExistingContract = {
+            id: String(contract.id ?? contract.contractId ?? contract.existingContractId ?? contract.key ?? contractId),
+            vendorName: contract.vendorName ?? contract.nameOfVendor ?? '',
+            productName: contract.productName ?? '',
+            requesterName: contract.requesterName ?? '',
+            requesterMail: contract.requesterMail ?? contract.requesterEmail ?? '',
+            vendorContractType: normalizedType,
+            vendorStartDate: String(contract.dueDate ?? ''),
+            vendorEndDate: String(contract.renewalDate ?? ''),
+            additionalComment: contract.additionalComment ?? '',
+            vendorUnit: contract.currentUnits ?? contract.unit ?? '',
+            vendorUsage,
+          };
+          
+          setExistingContracts([specificContract]);
+          setSelectedExistingContractId(specificContract.id);
+          return specificContract;
+        } else {
+          throw new Error(`Contract with ID ${contractId} not found`);
+        }
+      } else {
+        // Direct API response for specific contract
+        const contract: any = await response.json();
+        
+        const rawType =
+          contract.vendorContractType ||
+          contract.billingType ||
+          contract.billing_type ||
+          contract.contractBilling ||
+          contract.vendor_contract_type ||
+          '';
+        
+        const normalizedType = normalizeVendorType(rawType);
+        
+        let vendorUsage: number | undefined;
+        
+        if (normalizedType === 'usage') {
+          const usageVal =
+            contract.currentUsageCount ??
+            contract.newUsageCount ??
+            null;
+          
+          if (usageVal !== null && usageVal !== undefined) {
+            vendorUsage = Number(usageVal);
+          }
+        } else if (normalizedType === 'license') {
+          const licenseVal =
+            contract.currentLicenseCount ??
+            contract.newLicenseCount ??
+            null;
+          
+          if (licenseVal !== null && licenseVal !== undefined) {
+            vendorUsage = Number(licenseVal);
+          }
+        } else {
+          const anyVal =
+            contract.currentUsageCount ??
+            contract.currentLicenseCount ??
+            contract.newUsageCount ??
+            contract.newLicenseCount ??
+            null;
+          
+          if (anyVal !== null && anyVal !== undefined) {
+            vendorUsage = Number(anyVal);
+          }
+        }
+        
+        const specificContract: ExistingContract = {
+          id: String(contract.id ?? contract.contractId ?? contract.existingContractId ?? contract.key ?? contractId),
+          vendorName: contract.vendorName ?? contract.nameOfVendor ?? '',
+          productName: contract.productName ?? '',
+          requesterName: contract.requesterName ?? '',
+          requesterMail: contract.requesterMail ?? contract.requesterEmail ?? '',
+          vendorContractType: normalizedType,
+          vendorStartDate: String(contract.dueDate ?? ''),
+          vendorEndDate: String(contract.renewalDate ?? ''),
+          additionalComment: contract.additionalComment ?? '',
+          vendorUnit: contract.currentUnits ?? contract.unit ?? '',
+          vendorUsage,
+        };
+        
+        setExistingContracts([specificContract]);
+        setSelectedExistingContractId(specificContract.id);
+        return specificContract;
+      }
+    } catch (err) {
+      console.error('Error fetching specific contract', err);
+      throw err;
     } finally {
       setLoadingExistingContracts(false);
     }

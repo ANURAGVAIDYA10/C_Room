@@ -87,6 +87,9 @@ import UsersList from "./pages/UsersList";
 import SendInvitation from "./pages/SendInvitation";
 import Organizations from "./pages/Organizations";
 import AllOpen from "./main pages/Request Management/AllOpen";
+import AssignedToMe from "./main pages/Request Management/AssignedToMe";
+import Unassigned from "./main pages/Request Management/Unassigned";
+import Resolved from "./main pages/Request Management/Resolved";
 import RequestSplitView from "./main pages/Request Management/RequestSplitView";
 import VendorList from "./main pages/Vendor Management/VendorList";
 import VendorAgreements from "./main pages/Vendor Management/VendorAgreements";
@@ -139,7 +142,7 @@ export default function App() {
         <ScrollToTop />
         <Routes>
           {/* Root route - always redirect to signin */}
-          <Route path="/" element={<Navigate to="/signin" replace />} />
+          <Route path="/" element={<ProtectedRoute><Navigate to="/ecommerce/dashboard" replace /></ProtectedRoute>} />
           
           {/* Dashboard Layout */}
           <Route element={<AppLayout />}>
@@ -180,9 +183,9 @@ export default function App() {
             <Route path="/send-invitation" element={<ProtectedRoute><SendInvitation /></ProtectedRoute>} />
             <Route path="/organizations" element={<ProtectedRoute><Organizations /></ProtectedRoute>} />
             <Route path="/request-management/all-open" element={<ProtectedRoute><AllOpen /></ProtectedRoute>} />
-            <Route path="/request-management/assigned-to-me" element={<ProtectedRoute><AllOpen /></ProtectedRoute>} />
-            <Route path="/request-management/unassigned" element={<ProtectedRoute><AllOpen /></ProtectedRoute>} />
-            <Route path="/request-management/resolved" element={<ProtectedRoute><AllOpen /></ProtectedRoute>} />
+            <Route path="/request-management/assigned-to-me" element={<ProtectedRoute><AssignedToMe /></ProtectedRoute>} />
+            <Route path="/request-management/unassigned" element={<ProtectedRoute><Unassigned /></ProtectedRoute>} />
+            <Route path="/request-management/resolved" element={<ProtectedRoute><Resolved /></ProtectedRoute>} />
             <Route path="/request-management/:issueKey" element={<ProtectedPermissionRoute requiredPermissions={[Permission.VIEW_ISSUES]}><RequestSplitView /></ProtectedPermissionRoute>} />
             <Route path="/request-management" element={<ProtectedRoute><AllOpen /></ProtectedRoute>} />
             <Route path="/vendor-management/list" element={<ProtectedRoute><VendorList /></ProtectedRoute>} />

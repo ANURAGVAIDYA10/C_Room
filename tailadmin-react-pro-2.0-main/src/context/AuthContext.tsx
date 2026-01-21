@@ -1,10 +1,12 @@
 // src/context/AuthContext.tsx
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
 import { auth } from "../firebase";
-import { onAuthStateChanged, User } from "firebase/auth";
+import { onAuthStateChanged, signOut, User } from "firebase/auth";
 import { userService } from "../services/userService";
 import { authApi } from "../services/api";
 import { Permission, hasPermission, hasAnyPermission, hasAllPermissions } from "../config/permissions";
+import { startSessionMonitoring, stopSessionMonitoring } from "../utils/UserIntent";
+import { initCrossTabSync, cleanupCrossTabSync, broadcastLogout, broadcastLogin, onSyncMessage, SyncMessageType } from "../utils/crossTabSync";
 
 // Define the user data structure
 interface UserData {
@@ -123,6 +125,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const memoizedHasAllPermissions = useCallback((permissions: Permission[]) => hasAllPermissions(userRole, permissions), [userRole]);
 
   useEffect(() => {
+    // Initialize cross-tab synchronization
+    console.log('AuthContext: Initializing cross-tab sync');
+    initCrossTabSync();
+    
+    // Listen for logout events from other tabs
+    const cleanupLogoutListener = onSyncMessage((message) => {
+      if (message.type === SyncMessageType.LOGOUT) {
+        console.log('AuthContext: Logout detected from another tab');
+        // Perform logout in this tab
+        signOut(auth).catch(error => {
+          console.error('AuthContext: Error signing out:', error);
+        });
+      } else if (message.type === SyncMessageType.LOGIN) {
+        console.log('AuthContext: Login detected from another tab');
+        // The onAuthStateChanged will handle the login
+      }
+    });
+    
     console.log('AuthContext: Setting up onAuthStateChanged listener');
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       console.log('AuthContext: onAuthStateChanged called with user=', user);
@@ -139,7 +159,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.log('AuthContext: Exchanging Firebase token for JWT session...');
           // Exchange Firebase token for JWT session
           const response = await authApi.exchangeFirebaseToken(firebaseToken);
-          console.log('AuthContext: Exchange response=', response);
+          console.log('AuthContext: Exchange response received:', response);
+          console.log('AuthContext: Response type:', typeof response);
+          console.log('AuthContext: Response keys:', Object.keys(response || {}));
+          console.log('AuthContext: Has user property:', !!(response && response.user));
           
           if (response && response.user) {
             console.log('AuthContext: Token exchange successful');
@@ -169,6 +192,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             // SET SESSION READY - CRITICAL FOR PROPER API FLOW
             setSessionReady(true);
             console.log('AuthContext: Session ready set to true');
+            
+            // Start session monitoring ONLY after successful authentication
+            console.log('AuthContext: Initializing session monitoring');
+            startSessionMonitoring();
+            
+            // Broadcast login to other tabs
+            broadcastLogin();
           } else {
             console.error('AuthContext: Failed to exchange token or invalid response:', response);
           }
@@ -187,7 +217,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setIsRequester(true);
         }
       } else {
-        console.log('AuthContext: User is signed out');
+        console.log('AuthContext: User is signed out - authentication check complete');
+        
+        // Stop session monitoring when user logs out
+        stopSessionMonitoring();
+        
+        // Broadcast logout to other tabs
+        broadcastLogout();
+        
         setCurrentUser(null);
         setUserRole(null);
         setUserDepartmentId(null);
@@ -202,9 +239,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Clear login time when user logs out
         localStorage.removeItem('loginTime');
         
-        // CRITICAL: Set sessionReady to false on logout
-        setSessionReady(false);
-        console.log('AuthContext: Session ready set to false');
+        // Authentication check is complete, even for unauthenticated users
+        // sessionReady should be true to allow ProtectedRoute to redirect properly
+        setSessionReady(true);
+        console.log('AuthContext: Session ready set to true (unauthenticated)');
       }
       
       // Set loading to false after handling the user state
@@ -212,7 +250,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    return unsubscribe;
+    // Cleanup function
+    return () => {
+      unsubscribe();
+      cleanupLogoutListener();
+      cleanupCrossTabSync();
+    };
   }, []);
 
   const value = {

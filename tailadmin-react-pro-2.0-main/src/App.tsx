@@ -136,6 +136,7 @@ export default function App() {
   
   return (
     <>
+      
       <AuthProvider>
       <NotificationProvider>
       <Router>
@@ -147,6 +148,13 @@ export default function App() {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/two-step-verification" element={<TwoStepVerification />} />
           
+          {/* Root route - redirect to dashboard if authenticated, otherwise to signin */}
+          <Route path="/" element={
+            <ProtectedRoute>
+              <Navigate to="/ecommerce/dashboard" replace />
+            </ProtectedRoute>
+          } />
+          
           {/* Alternative Layout - for special pages (public) */}
           <Route element={<AlternativeLayout />}>
             <Route path="/text-generator" element={<TextGeneratorPage />} />
@@ -157,13 +165,6 @@ export default function App() {
           
           {/* Protected Routes - Wrapped in AppLayout */}
           <Route element={<AppLayout />}>
-            {/* Root route - redirect to dashboard if authenticated, otherwise to signin */}
-            <Route path="/" element={
-              <ProtectedRoute>
-                <Navigate to="/ecommerce/dashboard" replace />
-              </ProtectedRoute>
-            } />
-            
             {/* Dashboard Routes */}
             <Route path="/ecommerce/dashboard" element={<ProtectedRoute><Ecommerce /></ProtectedRoute>} />
             <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />

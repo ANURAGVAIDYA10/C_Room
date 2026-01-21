@@ -18,11 +18,8 @@ const app = initializeApp(firebaseConfig);
 // Firebase Auth instance
 export const auth = getAuth(app);
 
-// Set auth persistence to local storage to keep user logged in
-setPersistence(auth, browserLocalPersistence)
-  .catch((error) => {
-    console.error("Failed to set auth persistence:", error);
-  });
+// No persistence needed - using custom JWT session management
+// Firebase only used for initial authentication, not session persistence
 
 // Export email service functions
 export { sendSignInLinkToEmail };

@@ -1,5 +1,6 @@
 // services/api.ts
 import { auth } from "../firebase";
+import { consumeUserIntent } from '../utils/UserIntent';
 
 // Cache for storing API responses
 const apiCache = new Map<string, { data: any; timestamp: number }>();
@@ -21,6 +22,16 @@ export async function apiCall(endpoint: string, options: RequestInit = {}, useCa
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
+  
+  // Add user activity header only when explicit user intent is consumed
+  const hadUserIntent = consumeUserIntent();
+  if (hadUserIntent) {
+    headers['X-User-Activity'] = 'true';
+    console.log('[API_CALL] Request includes user activity header:', endpoint);
+  } else {
+    console.log('[API_CALL] Request without user activity header (system request):', endpoint);
+  }
+  
 
   // Merge with any existing headers
   Object.assign(headers, options.headers || {});
@@ -80,14 +91,27 @@ export async function apiCall(endpoint: string, options: RequestInit = {}, useCa
       
       // If receiving 401, it means session expired
       if (response.status === 401) {
-        // Only redirect to login if we were expecting the session to be valid
-        // If sessionReady is false, this might be the first API call before session is established
-        
-        // For now, let's make the redirect conditional to avoid premature redirects
-        // This will be handled by the component using the API instead of globally
-        console.warn('Received 401 - session may have expired');
-        // Don't redirect globally, let the calling component handle it
-        // window.location.href = '/auth/signin';
+        console.warn('Received 401 - session may have expired, redirecting to login');
+
+        // Clear any local session data
+        localStorage.clear();
+        sessionStorage.clear();
+
+        // Also sign out from Firebase to prevent redirect loop
+        try {
+          const { auth } = await import('../firebase');
+          const { signOut } = await import('firebase/auth');
+          await signOut(auth);
+          console.log('Firebase sign out completed due to 401 error');
+        } catch (firebaseError) {
+          console.warn('Failed to sign out from Firebase:', firebaseError);
+        }
+
+        // Redirect to login page (matches the route in App.tsx)
+        window.location.href = '/signin';
+
+        // Throw error to stop further execution
+        throw new Error('Session expired - redirected to login');
       }
       
       throw new Error(errorMessage);
@@ -318,17 +342,10 @@ export const authApi = {
   
   // Logout function
   logout: async () => {
-    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/auth/logout`, {
+    return apiCall('/api/auth/logout', {
       method: 'POST',
       credentials: 'include', // Include cookies for logout
     });
-    
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to logout');
-    }
-    
-    return response.json();
   }
 };
 

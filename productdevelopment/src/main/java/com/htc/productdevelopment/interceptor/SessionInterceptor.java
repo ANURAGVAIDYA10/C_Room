@@ -6,6 +6,8 @@ import com.htc.productdevelopment.utils.SessionManager;
 import com.htc.productdevelopment.config.SessionConfig;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
@@ -15,7 +17,9 @@ import java.util.Date;
 
 @Component
 public class SessionInterceptor implements HandlerInterceptor {
-
+    
+    private static final Logger logger = LoggerFactory.getLogger(SessionInterceptor.class);
+    
     private final JwtUtil jwtUtil;
     private final CookieUtil cookieUtil;
     private final SessionManager sessionManager;
@@ -55,23 +59,27 @@ public class SessionInterceptor implements HandlerInterceptor {
             return false;
         }
 
-        // Check if session is valid - BUT allow grace period after token exchange
-        if (!sessionManager.isSessionValid(username)) {
-            // For immediate post-login requests, there might be a small timing issue
-            // Let's add a grace period to handle the race condition by checking if the token is fresh
-            boolean isFreshToken = isFreshToken(jwtToken);
-            if (!isFreshToken) {
-                // Clear the invalid token
-                response.addHeader("Set-Cookie", cookieUtil.clearJwtCookie().toString());
-                response.setStatus(HttpStatus.UNAUTHORIZED.value());
-                response.getWriter().write("{\"error\": \"Session expired\"}");
-                return false;
-            }
+        // DEBUG: Log session check details
+        logger.info("SESSION CHECK for user: {} | URI: {}", username, requestURI);
+        
+        // Check session validity
+        boolean isValid = sessionManager.isSessionValid(username);
+        logger.info("Session valid for {}: {}", username, isValid);
+        
+        if (!isValid) {
+            logger.warn("SESSION INVALID for user: {}", username);
+            response.setStatus(HttpStatus.UNAUTHORIZED.value());
+            response.getWriter().write("{\"error\": \"Session expired\"}");
+            return false;
         }
-
-        // Check if user has been inactive for too long (> 1 hour)
-        if (sessionManager.isSessionInactive(username)) {
-            // Clear the inactive session
+        
+        // Check inactivity timeout - this will trigger logout after 1 minute of no user activity
+        boolean isInactive = sessionManager.isSessionInactive(username);
+        logger.info("Session inactive for {}: {} | Configured timeout: {} minutes", 
+                   username, isInactive, sessionConfig.getInactivityTimeoutMinutes());
+        
+        if (isInactive) {
+            logger.warn("SESSION INACTIVE - LOGGING OUT user: {}", username);
             sessionManager.removeSession(username);
             response.addHeader("Set-Cookie", cookieUtil.clearJwtCookie().toString());
             response.setStatus(HttpStatus.UNAUTHORIZED.value());
@@ -79,8 +87,11 @@ public class SessionInterceptor implements HandlerInterceptor {
             return false;
         }
 
-        // Update last activity for the session
-        sessionManager.updateLastActivity(username);
+        // Update last activity for the session only if request is user-initiated
+        String userActivityHeader = request.getHeader("X-User-Activity");
+        if ("true".equals(userActivityHeader)) {
+            sessionManager.updateLastActivity(username);
+        }
 
         // If token is close to expiry (within 5 minutes), refresh it
         if (shouldRefreshToken(jwtToken)) {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Link } from "react-router-dom";
 import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "../../icons";
@@ -9,6 +9,8 @@ import Button from "../ui/button/Button";
 import { signInWithPopup, GoogleAuthProvider, OAuthProvider, signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../../firebase";
 import { useAuth } from "../../context/AuthContext";
+import { markUserIntent } from "../../utils/UserIntent";
+import { onSyncMessage, SyncMessageType } from "../../utils/crossTabSync";
 
 export default function SignInForm() {
   const [showPassword, setShowPassword] = useState(false);
@@ -18,8 +20,40 @@ export default function SignInForm() {
   const [validationError, setValidationError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { refreshUserData } = useAuth(); // Get refresh function from AuthContext
+  const { refreshUserData, currentUser, loading: authLoading } = useAuth(); // Get auth state
   const navigate = useNavigate();
+  const [shouldNavigate, setShouldNavigate] = useState(false);
+  const [forceCheck, setForceCheck] = useState(0); // Force re-check when login happens in another tab
+  
+  // Listen for login events from other tabs
+  useEffect(() => {
+    const cleanup = onSyncMessage((message) => {
+      if (message.type === SyncMessageType.LOGIN) {
+        console.log('SignInForm: Login detected from another tab, forcing re-check');
+        // Force re-check of auth state
+        setForceCheck(prev => prev + 1);
+      }
+    });
+    
+    return cleanup;
+  }, []);
+  
+  // Auto-redirect if already authenticated (Option 1: Enterprise behavior)
+  useEffect(() => {
+    if (!authLoading && currentUser) {
+      console.log('Already authenticated, redirecting to dashboard');
+      navigate("/ecommerce/dashboard", { replace: true });
+    }
+  }, [authLoading, currentUser, navigate, forceCheck]); // Added forceCheck dependency
+  
+  // Navigate to dashboard once authentication is complete
+  useEffect(() => {
+    if (shouldNavigate && !authLoading && currentUser) {
+      console.log('Auth complete, navigating to dashboard');
+      navigate("/ecommerce/dashboard");
+      setShouldNavigate(false);
+    }
+  }, [shouldNavigate, authLoading, currentUser, navigate]);
   
   // Validate email format
   const isValidEmail = (email: string): boolean => {
@@ -33,6 +67,9 @@ export default function SignInForm() {
   };
   
   const handleSubmit = async () => {
+    // Mark explicit user intent
+    markUserIntent();
+    
     // Reset validation errors
     setValidationError(null);
     setError(null);
@@ -79,11 +116,8 @@ export default function SignInForm() {
       const result = await signInWithEmailAndPassword(auth, trimmedEmail, trimmedPassword);
       console.log("Successfully signed in:", result.user);
       
-      // Manually refresh user data to ensure we have the latest role from database
-      await refreshUserData();
-      
-      // Redirect to ecommerce dashboard on successful sign in
-      navigate("/ecommerce/dashboard");
+      // Set flag to navigate once auth is complete
+      setShouldNavigate(true);
     } catch (err: any) {
       let errorMessage = "Failed to sign in. Please check your credentials and try again.";
       if (err.code) {
@@ -113,17 +147,17 @@ export default function SignInForm() {
   
   // Handle Google sign-in
   const handleGoogleSignIn = async () => {
+    // Mark explicit user intent
+    markUserIntent();
+    
     setLoading(true);
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
       console.log("Google sign-in successful:", result.user);
       
-      // Manually refresh user data to ensure we have the latest role from database
-      await refreshUserData();
-      
-      // Redirect to ecommerce dashboard on successful sign in
-      navigate("/ecommerce/dashboard");
+      // Set flag to navigate once auth is complete
+      setShouldNavigate(true);
     } catch (error) {
       setError("Google sign-in failed. Please try again.");
       console.error("Error signing in with Google:", error);
@@ -134,17 +168,17 @@ export default function SignInForm() {
   
   // Handle Microsoft sign-in
   const handleMicrosoftSignIn = async () => {
+    // Mark explicit user intent
+    markUserIntent();
+    
     setLoading(true);
     try {
       const provider = new OAuthProvider('microsoft.com');
       const result = await signInWithPopup(auth, provider);
       console.log("Microsoft sign-in successful:", result.user);
       
-      // Manually refresh user data to ensure we have the latest role from database
-      await refreshUserData();
-      
-      // Redirect to ecommerce dashboard on successful sign in
-      navigate("/ecommerce/dashboard");
+      // Set flag to navigate once auth is complete
+      setShouldNavigate(true);
     } catch (error) {
       setError("Microsoft sign-in failed. Please try again.");
       console.error("Error signing in with Microsoft:", error);

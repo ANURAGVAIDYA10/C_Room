@@ -6,13 +6,9 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class SessionConfig {
 
-    // Session timeout in minutes - default is 1 minute
+    // Unified session timeout in minutes - used for both session and inactivity
     @Value("${app.session.timeout.minutes:1}")
     private int sessionTimeoutMinutes;
-
-    // Inactivity timeout in minutes - default is 1 minute
-    @Value("${app.session.inactivity.timeout.minutes:1}")
-    private int inactivityTimeoutMinutes;
 
     public int getSessionTimeoutMinutes() {
         return sessionTimeoutMinutes;
@@ -22,21 +18,17 @@ public class SessionConfig {
         this.sessionTimeoutMinutes = sessionTimeoutMinutes;
     }
 
-    public int getInactivityTimeoutMinutes() {
-        return inactivityTimeoutMinutes;
-    }
-
-    public void setInactivityTimeoutMinutes(int inactivityTimeoutMinutes) {
-        this.inactivityTimeoutMinutes = inactivityTimeoutMinutes;
-    }
-
-    // Get timeout in milliseconds
+    // Get timeout in milliseconds (used for both session and inactivity)
     public long getSessionTimeoutMs() {
         return sessionTimeoutMinutes * 60 * 1000L;
     }
 
-    // Get inactivity timeout in milliseconds
+    // Alias for backward compatibility
     public long getInactivityTimeoutMs() {
-        return inactivityTimeoutMinutes * 60 * 1000L;
+        return getSessionTimeoutMs();
+    }
+
+    public int getInactivityTimeoutMinutes() {
+        return getSessionTimeoutMinutes();
     }
 }

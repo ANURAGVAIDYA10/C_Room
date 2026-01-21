@@ -19,11 +19,17 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const { sessionReady } = useAuth(); // NEW: Get sessionReady from auth
+  const { sessionReady, currentUser } = useAuth(); // Get sessionReady and currentUser from auth
   
   console.log('NOTIFICATION_LOG: NotificationProvider mounted');
 
   const fetchNotifications = async () => {
+    // Defensive check: only fetch if user is authenticated
+    if (!sessionReady || !currentUser) {
+      console.log('NOTIFICATION_LOG: Skipping notifications fetch - not authenticated');
+      return;
+    }
+    
     console.log('NOTIFICATION_LOG: Fetching notifications from backend...');
     try {
       const data = await notificationApi.getNotifications();
@@ -35,6 +41,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   };
 
   const fetchUnreadCount = async () => {
+    // Defensive check: only fetch if user is authenticated
+    if (!sessionReady || !currentUser) {
+      console.log('NOTIFICATION_LOG: Skipping unread count fetch - not authenticated');
+      return;
+    }
+    
     console.log('Fetching unread count from backend...');
     try {
       const data = await notificationApi.getUnreadCount();
@@ -46,6 +58,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   };
 
   const refreshNotifications = async () => {
+    // Defensive check: only refresh if user is authenticated
+    if (!sessionReady || !currentUser) {
+      console.log('NOTIFICATION_LOG: Skipping refresh - not authenticated');
+      return;
+    }
+    
     console.log('NOTIFICATION_LOG: Refreshing notifications and unread count');
     await Promise.all([
       fetchNotifications(),
@@ -89,14 +107,14 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // NEW: Connect WebSocket when session is ready
+  // NEW: Connect WebSocket when session is ready and user is authenticated
   useEffect(() => {
-    if (!sessionReady) {
-      console.log('NOTIFICATION_LOG: Session not ready, skipping WebSocket connection');
+    if (!sessionReady || !currentUser) {
+      console.log('NOTIFICATION_LOG: Session not ready or user not authenticated, skipping WebSocket connection');
       return;
     }
     
-    console.log('NOTIFICATION_LOG: Session ready, connecting to WebSocket');
+    console.log('NOTIFICATION_LOG: Session ready and user authenticated, connecting to WebSocket');
     
     // Callback functions for handling notifications from WebSocket
     const handleNotification = (notification: any) => {
@@ -120,27 +138,27 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       console.log('NOTIFICATION_LOG: Disconnecting WebSocket');
       stompWebSocketService.disconnect();
     };
-  }, [sessionReady]); // NEW: Depend on sessionReady
+  }, [sessionReady, currentUser]);
 
-  // NEW: Only refresh when session is ready
+  // NEW: Only refresh when session is ready and user is authenticated
   useEffect(() => {
-    if (!sessionReady) {
-      console.log('NOTIFICATION_LOG: Session not ready, skipping notification refresh');
+    if (!sessionReady || !currentUser) {
+      console.log('NOTIFICATION_LOG: Session not ready or user not authenticated, skipping notification refresh');
       return;
     }
     
-    console.log('NOTIFICATION_LOG: Session ready, refreshing notifications');
+    console.log('NOTIFICATION_LOG: Session ready and user authenticated, refreshing notifications');
     refreshNotifications();
-  }, [sessionReady]); // NEW: Depend on sessionReady
+  }, [sessionReady, currentUser]);
 
   useEffect(() => {
-    if (!sessionReady) {
-      console.log('NOTIFICATION_LOG: Session not ready, skipping loading state update');
+    if (!sessionReady || !currentUser) {
+      console.log('NOTIFICATION_LOG: Session not ready or user not authenticated, skipping loading state update');
       return;
     }
     
     setLoading(false);
-  }, [sessionReady]);
+  }, [sessionReady, currentUser]);
 
   const value = {
     notifications,

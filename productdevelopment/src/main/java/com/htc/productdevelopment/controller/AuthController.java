@@ -79,6 +79,20 @@ public class AuthController {
     }
     
     /**
+     * Test endpoint for CORS debugging
+     * @return Simple response to test CORS configuration
+     */
+    @GetMapping("/cors-test")
+    public ResponseEntity<?> corsTest(@RequestHeader(value = "X-User-Activity", required = false) String userActivity) {
+        logger.info("CORS test endpoint called with X-User-Activity header: {}", userActivity);
+        Map<String, Object> response = new HashMap<>();
+        response.put("message", "CORS test successful");
+        response.put("userActivity", userActivity);
+        response.put("timestamp", System.currentTimeMillis());
+        return ResponseEntity.ok(response);
+    }
+    
+    /**
      * Complete invitation with Firebase Email-Link authentication
      * @param authorizationHeader Firebase ID token in Authorization header
      * @param requestBody Request body containing invitation token
@@ -659,13 +673,17 @@ public class AuthController {
             logger.info("Generating JWT token...");
             String jwtToken = jwtUtil.generateToken(firebaseEmail, user.getRole().name(), "firebase", firebaseUid);
             
+            // Log token expiration for debugging
+            Date jwtExpiry = jwtUtil.getExpirationDateFromToken(jwtToken);
+            logger.info("JWT Token generated - Expires at: {} | Current time: {}", jwtExpiry, new Date());
+            
             // Create and set the JWT cookie
             logger.info("Setting JWT cookie...");
             var jwtCookie = cookieUtil.createJwtCookie(jwtToken);
             response.addHeader("Set-Cookie", jwtCookie.toString());
             
             // Create session in session manager
-            Date tokenExpiry = new Date(System.currentTimeMillis() + 3600000); // 1 hour
+            Date tokenExpiry = new Date(System.currentTimeMillis() + sessionConfig.getSessionTimeoutMs()); // Use configured timeout
             sessionManager.createSession(firebaseEmail, jwtToken, tokenExpiry);
             
             logger.info("Firebase token exchanged successfully for user: {}", firebaseEmail);

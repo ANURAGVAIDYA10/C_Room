@@ -18,8 +18,9 @@ public class JwtUtil {
 
     private SecretKey secretKey;
     
-    // Token expiration time (1 hour)
-    private static final long JWT_TOKEN_VALIDITY = 60 * 60 * 1000; // 1 hour in milliseconds
+    // Token expiration time in minutes - configurable via application.properties
+    @Value("${app.jwt.expiration.minutes:60}")
+    private int jwtTokenValidityMinutes;
 
     public JwtUtil(@Value("${jwt.secret:MySuperSecretKeyForHS512AlgorithmThatIsAtLeast512BitsLongAndSecure}") String jwtSecret) {
         // For HS512, we need at least 512-bit (64-byte) key
@@ -87,7 +88,7 @@ public class JwtUtil {
                 .setClaims(claims)
                 .setSubject(subject)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + JWT_TOKEN_VALIDITY))
+                .setExpiration(new Date(System.currentTimeMillis() + (jwtTokenValidityMinutes * 60 * 1000)))
                 .signWith(secretKey, SignatureAlgorithm.HS512)
                 .compact();
     }

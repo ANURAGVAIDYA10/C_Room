@@ -1,5 +1,7 @@
 package com.htc.productdevelopment.utils;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -10,6 +12,8 @@ import java.util.Date;
 
 @Component
 public class SessionManager {
+    
+    private static final Logger logger = LoggerFactory.getLogger(SessionManager.class);
 
     // Store session information (user ID to session data)
         private final ConcurrentHashMap<String, SessionData> activeSessions = new ConcurrentHashMap<>();
@@ -55,7 +59,14 @@ public class SessionManager {
         public boolean isInactiveFor(int maxInactiveMinutes) {
             long currentTime = System.currentTimeMillis();
             long lastActivityTime = lastActivity.getTime();
-            return (currentTime - lastActivityTime) > (maxInactiveMinutes * 60 * 1000);
+            long timeSinceActivity = currentTime - lastActivityTime;
+            long maxInactiveTime = maxInactiveMinutes * 60 * 1000L;
+            boolean isInactive = timeSinceActivity > maxInactiveTime;
+            
+            logger.debug("INACTIVITY CHECK - User: {} | Last activity: {}ms ago | Max allowed: {}ms | Inactive: {}", 
+                        userId, timeSinceActivity, maxInactiveTime, isInactive);
+            
+            return isInactive;
         }
     }
 

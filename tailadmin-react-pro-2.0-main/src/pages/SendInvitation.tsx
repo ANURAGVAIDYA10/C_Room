@@ -188,6 +188,10 @@ export default function SendInvitation() {
     }
     
     try {
+      // Mark explicit user intent
+      const { markUserIntent } = await import('../utils/UserIntent');
+      markUserIntent();
+
       // Prepare invitation data for pending user creation
       const invitationData: {
         email: string;
@@ -199,7 +203,7 @@ export default function SendInvitation() {
         role: formData.role,
         departmentId: formData.departmentId ? parseInt(formData.departmentId) : null
       };
-      
+
       // Add organizationId if provided
       if (formData.organizationId) {
         invitationData.organizationId = parseInt(formData.organizationId);
@@ -207,18 +211,13 @@ export default function SendInvitation() {
         // For non-SUPER_ADMIN users, add organizationId if available
         invitationData.organizationId = userOrganizationId;
       }
-      
-      // First, create the invitation record in the database
-      const response = await invitationApi.createFirebaseInvitation(invitationData);
-      
-      // Log the action code settings for debugging
-      console.log('Sending invitation to:', formData.email);
-      console.log('Current origin:', window.location.origin);
-      console.log('Complete URL:', `${window.location.origin}/complete-invitation?email=${encodeURIComponent(formData.email)}`);
 
-      // Then, send the email link using Firebase Auth
+      // Create the invitation record and get the token
+      const response = await invitationApi.createInvitation(invitationData);
+
+      // Send the invitation email using Firebase from the frontend
       const result = await sendFirebaseInvitationEmail(
-        formData.email, 
+        formData.email,
         response.data.token, // Use the actual invitation token from backend
         invitationData
       );
@@ -226,13 +225,11 @@ export default function SendInvitation() {
       if (result.success) {
         // Store email locally for verification when the link is clicked
         window.localStorage.setItem('emailForSignIn', formData.email);
-        console.log('Email link sent successfully to:', formData.email);
-        
         // Show success toast
         setToastMessage("Invitation sent successfully! The user will receive an email notification with instructions to complete their registration.");
         setToastType('success');
         setShowToast(true);
-        
+
         // Reset form (but keep department selection for Admin users)
         setFormData(prev => ({
           ...prev,
@@ -241,7 +238,7 @@ export default function SendInvitation() {
           departmentId: isSuperAdmin ? "" : (userDepartmentId ? userDepartmentId.toString() : ""),
           organizationId: isSuperAdmin ? (userOrganizationId ? userOrganizationId.toString() : "") : ""
         }));
-        
+
         // Clear email validation
         setEmailValidation(null);
       } else {

@@ -1,6 +1,8 @@
 package com.htc.productdevelopment.config;
 
 import com.htc.productdevelopment.interceptor.SessionInterceptor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
@@ -13,7 +15,9 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  */
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
-
+    
+    private static final Logger logger = LoggerFactory.getLogger(WebConfig.class);
+    
     private final SessionInterceptor sessionInterceptor;
     private final UrlConfig urlConfig;
     
@@ -32,20 +36,32 @@ public class WebConfig implements WebMvcConfigurer {
      */
     @Override
     public void addCorsMappings(CorsRegistry registry) {
+        logger.info("=== CORS CONFIGURATION STARTING ===");
+        logger.info("Configuring CORS for /api/** endpoints");
+        logger.info("Allowed origins: {}", (Object[]) urlConfig.getAllowedOrigins());
+        logger.info("Current thread: {}", Thread.currentThread().getName());
+        
         registry.addMapping("/api/**")
             .allowedOrigins(urlConfig.getAllowedOrigins())
             .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-            .allowedHeaders("*")
+            .allowedHeaders("Origin", "Accept", "X-Requested-With", "Content-Type", "Access-Control-Request-Method", "Access-Control-Request-Headers", "Authorization", "X-User-Activity")  // Explicitly list all headers including our custom one
+            .exposedHeaders("Set-Cookie")  // Explicitly expose Set-Cookie header
             .allowCredentials(true);
+            
+        logger.info("CORS configuration completed for /api/**");
     }
     
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
+        logger.info("Configuring SessionInterceptor");
+        
         // Apply the session interceptor to all endpoints except public ones
         registry.addInterceptor(sessionInterceptor)
                 .excludePathPatterns(
                     "/api/auth/login**",
                     "/api/auth/complete-invitation**",
+                    "/api/auth/exchange-token",
+                    "/api/auth/exchange-token/**",  // Add these to exclude exchange-token from session validation
                     "/api/auth/refresh**",
                     "/api/auth/public**",
                     "/login**",
@@ -62,5 +78,7 @@ public class WebConfig implements WebMvcConfigurer {
                     "/**/*.css",
                     "/**/*.js"
                 );
+                
+        logger.info("SessionInterceptor configured with exclusions");
     }
 }

@@ -1,80 +1,88 @@
 import React from "react";
 import Badge from "../ui/badge/Badge";
+import {
+  DollarSign,
+  ArrowDown,
+  Percent,
+  ClipboardCheck,
+  CheckCircle,
+} from "lucide-react";
 
-const mockData = [
+const metrics = [
   {
     id: 1,
-    title: "Unique Visitors",
-    value: "24.7K",
-    change: "+20%",
+    title: "Total Spend",
+    value: "$1.2M",
+    change: "+2.01%",
     direction: "up",
-    comparisonText: "Vs last month",
+    icon: DollarSign,
   },
   {
     id: 2,
-    title: "Total Pageviews",
-    value: "55.9K",
-    change: "+4%",
+    title: "Total Savings",
+    value: "$185K",
+    change: "+1.21%",
     direction: "up",
-    comparisonText: "Vs last month",
+    icon: ArrowDown,
   },
   {
     id: 3,
-    title: "Bounce Rate",
-    value: "54%",
-    change: "-1.59%",
+    title: "Savings Rate",
+    value: "15.4%",
+    change: "-11.01%",
     direction: "down",
-    comparisonText: "Vs last month",
+    icon: Percent,
   },
   {
     id: 4,
-    title: "Visit Duration",
-    value: "2m 56s",
-    change: "+7%",
-    direction: "up",
-    comparisonText: "Vs last month",
+    title: "Open Requests",
+    value: "12",
+    icon: ClipboardCheck,
+  },
+  {
+    id: 5,
+    title: "Closed Requests",
+    value: "8",
+    icon: CheckCircle,
   },
 ];
 
 const AnalyticsMetrics: React.FC = () => {
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-6 xl:grid-cols-4">
-      {/* <!-- Metric Item Start --> */}
-      {mockData.map((item) => (
-        <div
-          key={item.id}
-          className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]"
-        >
-          <p className="text-gray-500 text-theme-sm dark:text-gray-400">
-            {item.title}
-          </p>
-          <div className="flex items-end justify-between mt-3">
-            <div>
-              <h4 className="text-2xl font-bold text-gray-800 dark:text-white/90">
-                {item.value}
-              </h4>
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      {metrics.map((item) => {
+        const Icon = item.icon;
+
+        return (
+          <div
+            key={item.id}
+            className="relative rounded-2xl bg-white p-5 shadow-sm border border-gray-200"
+          >
+            {/* Top Row */}
+            <div className="flex items-start justify-between">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100">
+                <Icon className="h-5 w-5 text-gray-600" />
+              </div>
+
+              {item.change && (
+                <Badge
+                  color={item.direction === "up" ? "success" : "error"}
+                >
+                  {item.change}
+                </Badge>
+              )}
             </div>
-            <div className="flex items-center gap-1">
-              <Badge
-                color={
-                  item.direction === "up"
-                    ? "success"
-                    : item.direction === "down"
-                    ? "error"
-                    : "warning"
-                }
-              >
-                <span className="text-xs"> {item.change}</span>
-              </Badge>
-              <span className="text-gray-500 text-theme-xs dark:text-gray-400">
-                {item.comparisonText}
-              </span>
+
+            {/* Content */}
+            <div className="mt-4">
+              <p className="text-sm text-gray-500">{item.title}</p>
+              <h3 className="mt-1 text-2xl font-semibold text-gray-900">
+                {item.value}
+              </h3>
             </div>
           </div>
-        </div>
-      ))}
-
-      {/* <!-- Metric Item End --> */}
+        );
+      })}
     </div>
   );
 };

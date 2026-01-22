@@ -27,6 +27,7 @@
     "clsx": "^2.1.1",
     "firebase": "^12.7.0",
     "flatpickr": "^4.6.13",
+    "lucide-react": "^0.562.0",
     "prismjs": "^1.30.0",
     "react": "^19.0.0",
     "react-apexcharts": "^1.7.0",

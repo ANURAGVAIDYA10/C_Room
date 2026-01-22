@@ -82,6 +82,7 @@ interface ProductItem {
   productType?: 'license' | 'usage';
 }
 
+
 const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
   isOpen,
   onClose,
@@ -97,6 +98,14 @@ const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
     d.setMonth(d.getMonth() + months);
     return d.toISOString().split('T')[0];
   };
+
+  //get Billing Type Display Text
+const getBillingTypeDisplayText = () => {
+  if (isBillingTypeFrozen) {
+    return `${vendorContractType} (Auto-selected from product)`;
+  }
+  return vendorContractType || 'Select usage or license';
+};
 
   const [requesterName, setRequesterName] = useState('');
   const [requesterMail, setRequesterMail] = useState('');
@@ -162,10 +171,22 @@ const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
   const dueDateRef = useRef<HTMLInputElement | null>(null);
   const renewalDateRef = useRef<HTMLInputElement | null>(null);
 
-  // Add these constants after line 154
+  // Limitation for Attachments
   const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB in bytes
   const ALLOWED_FILE_TYPES = ['application/pdf', 'image/jpeg', 'image/jpg'];
   const ALLOWED_EXTENSIONS = ['.pdf', '.jpg', '.jpeg'];
+
+  // State to track if the billing type is frozen
+  const [isBillingTypeFrozen, setIsBillingTypeFrozen] = useState(false);
+
+useEffect(() => {
+  // Unfreeze billing type when vendor changes
+  if (vendorName) {
+    setIsBillingTypeFrozen(false);
+    setVendorContractType(''); // Reset billing type when vendor changes
+  }
+}, [vendorName]);
+
 
   useEffect(() => {
     if (isOpen && userData && userData.user && currentUser) {
@@ -479,21 +500,40 @@ const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
   }, [contractType, contractDuration]);
 
 
-  const handleProductChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selectedProductName = e.target.value;
-    setProductName(selectedProductName);
-    setVendorContractType('');
+  //const handleProductChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  //   const selectedProductName = e.target.value;
+  //   setProductName(selectedProductName);
+  //   setVendorContractType('');
 
-    if (selectedProductName && vendorName) {
-      const selectedProduct = products.find(p => p.productName === selectedProductName);
-      if (selectedProduct && selectedProduct.productType) {
-        setProductType(selectedProduct.productType);
-        setVendorContractType(selectedProduct.productType);
-      } else {
-        setProductType('');
-      }
+  //   if (selectedProductName && vendorName) {
+  //     const selectedProduct = products.find(p => p.productName === selectedProductName);
+  //     if (selectedProduct && selectedProduct.productType) {
+  //       setProductType(selectedProduct.productType);
+  //       setVendorContractType(selectedProduct.productType);
+  //     } else {
+  //       setProductType('');
+  //     }
+  //   }
+  // };
+
+  const handleProductChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const selectedProductName = e.target.value;
+  setProductName(selectedProductName);
+  
+  if (selectedProductName && vendorName) {
+    const selectedProduct = products.find(p => p.productName === selectedProductName);
+    if (selectedProduct && selectedProduct.productType) {
+      setProductType(selectedProduct.productType);
+      setVendorContractType(selectedProduct.productType); // Auto-set billing type
+      setIsBillingTypeFrozen(true); // Freeze the billing type
+    } else {
+      setProductType('');
+      setIsBillingTypeFrozen(false); // Unfreeze if no product type
     }
-  };
+  } else {
+    setIsBillingTypeFrozen(false); // Unfreeze if no product selected
+  }
+};
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -1077,9 +1117,17 @@ const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
 
               <div className="mt-6">
                 {/* <label className="block mb-4 text-sm font-medium text-gray-700 dark:text-gray-400">Contract Billing</label> */}
-                <label className="block mb-4 text-sm font-medium text-gray-700 dark:text-gray-400">
+                {/* <label className="block mb-4 text-sm font-medium text-gray-700 dark:text-gray-400">
                   Contract Billing <span className="text-red-500">*</span>
-                </label>
+                </label> */}
+                <label className="block mb-4 text-sm font-medium text-gray-700 dark:text-gray-400">
+  Contract Billing <span className="text-red-500">*</span>
+  {isBillingTypeFrozen && (
+    <span className="ml-2 text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">
+      Locked - Based on selected product
+    </span>
+  )}
+</label>
 
                 <div className="flex flex-wrap items-center gap-4 sm:gap-5">
                   <div className="n-chk">
@@ -1103,6 +1151,30 @@ const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
                       </label>
                     </div>
                   </div>
+{/* 
+                  <div className="n-chk">
+  <div className={`form-check form-check-usage form-check-inline`}>
+    <label className="flex items-center text-sm text-gray-700 form-check-label dark:text-gray-400" htmlFor="billingUsage">
+      <span className="relative">
+        <input
+          className="sr-only form-check-input"
+          id="billingUsage"
+          type="radio"
+          name="billingType"
+          value="usage"
+          checked={vendorContractType === 'usage'}
+          onChange={() => !isBillingTypeFrozen && setVendorContractType('usage')} // Only allow change if not frozen
+          disabled={isBillingTypeFrozen} // Disable if frozen
+        />
+        <span className={`flex items-center justify-center w-5 h-5 mr-2 border border-gray-300 rounded-full box dark:border-gray-700 ${isBillingTypeFrozen ? 'bg-gray-200' : ''}`}>
+          <span className={`h-2 w-2 rounded-full bg-white ${vendorContractType === 'usage' ? 'block' : 'hidden'}`}></span>
+        </span>
+      </span>
+      Usage
+      {isBillingTypeFrozen && <span className="ml-2 text-xs text-gray-500">(Auto-selected)</span>}
+    </label>
+  </div>
+</div> */}
 
                   <div className="n-chk">
                     <div className={`form-check form-check-license form-check-inline`}>
@@ -1126,6 +1198,30 @@ const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
                     </div>
                   </div>
                 </div>
+
+                {/* <div className="n-chk">
+  <div className={`form-check form-check-license form-check-inline`}>
+    <label className="flex items-center text-sm text-gray-700 form-check-label dark:text-gray-400" htmlFor="billingLicense">
+      <span className="relative">
+        <input
+          className="sr-only form-check-input"
+          id="billingLicense"
+          type="radio"
+          name="billingType"
+          value="license"
+          checked={vendorContractType === 'license'}
+          onChange={() => !isBillingTypeFrozen && setVendorContractType('license')} // Only allow change if not frozen
+          disabled={isBillingTypeFrozen} // Disable if frozen
+        />
+        <span className={`flex items-center justify-center w-5 h-5 mr-2 border border-gray-300 rounded-full box dark:border-gray-700 ${isBillingTypeFrozen ? 'bg-gray-200' : ''}`}>
+          <span className={`h-2 w-2 rounded-full bg-white ${vendorContractType === 'license' ? 'block' : 'hidden'}`}></span>
+        </span>
+      </span>
+      License
+      {isBillingTypeFrozen && <span className="ml-2 text-xs text-gray-500">(Auto-selected)</span>}
+    </label>
+  </div>
+</div> */}
 
                 {/* {productType && vendorContractType && productType !== vendorContractType && (
                       <div className="mt-2 text-sm text-yellow-600">Note: The selected product is typically {productType}-based, but you've selected {vendorContractType} billing.</div>

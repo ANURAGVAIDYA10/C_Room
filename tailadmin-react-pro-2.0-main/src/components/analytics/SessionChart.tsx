@@ -1,137 +1,102 @@
 import Chart from "react-apexcharts";
 import { ApexOptions } from "apexcharts";
-import { Dropdown } from "../ui/dropdown/Dropdown";
-import { DropdownItem } from "../ui/dropdown/DropdownItem";
-import { MoreDotIcon } from "../../icons";
-import { useState } from "react";
 
-export default function SessionChart() {
+export default function RequestStatusChart() {
+  const series = [1800, 2200, 1600, 2100, 1300, 2500, 1000];
+
   const options: ApexOptions = {
-    // colors: ["#3641f5", "#7592ff", "#dde9ff"],
-    colors: ["#5F230C", "#F05C22", "#F5926B","#FCD8CA"],
-    labels: ["Desktop", "Mobile", "Tablet","Laptop"],
     chart: {
-      fontFamily: "Outfit, sans-serif",
       type: "donut",
-      width: 445,
-      height: 290,
+      fontFamily: "Outfit, sans-serif",
     },
+
+    labels: [
+      "Request Created",
+      "Pre-Approval",
+      "Request Review Stage",
+      "Negotiation Stage",
+      "Post Approval",
+      "Completed",
+      "Declined",
+    ],
+
+    colors: [
+      "#7C3AED", // Request Created
+      "#38BDF8", // Pre-Approval
+      "#FBBF24", // Review
+      "#FB923C", // Negotiation
+      "#A3E635", // Post Approval
+      "#22C55E", // Completed
+      "#EF4444", // Declined
+    ],
+
     plotOptions: {
       pie: {
         donut: {
-          size: "65%",
-          background: "transparent",
+          size: "70%",
           labels: {
             show: true,
+            name: {
+              show: true,
+              offsetY: -5,
+              color: "#6B7280",
+              fontSize: "14px",
+            },
             value: {
               show: true,
-              offsetY: 0,
+              fontSize: "28px",
+              fontWeight: 600,
+              color: "#111827",
+              offsetY: 8,
+              formatter: () => "12.5K",
+            },
+            total: {
+              show: true,
+              label: "Total",
+              fontSize: "14px",
+              color: "#6B7280",
             },
           },
         },
       },
     },
-    states: {
-      hover: {
-        filter: {
-          type: "none",
-        },
-      },
-      active: {
-        allowMultipleDataPointsSelection: false,
-        filter: {
-          type: "darken",
-        },
-      },
-    },
+
     dataLabels: {
       enabled: false,
     },
-    tooltip: {
-      enabled: false,
-    },
+
     stroke: {
-      show: false,
-      width: 4, // Creates a gap between the series
+      width: 2,
+      colors: ["#fff"],
     },
 
     legend: {
       show: true,
       position: "bottom",
-      horizontalAlign: "center",
-      fontFamily: "Outfit",
-      fontSize: "14px",
-      fontWeight: 400,
+      fontSize: "13px",
       markers: {
-        size: 4,
+        size: 8,
         shape: "circle",
-        strokeWidth: 0,
       },
       itemMargin: {
         horizontal: 10,
-        vertical: 0,
-      },
-      labels: {
-        useSeriesColors: true, // Optional: this makes each label color match the corresponding segment color
+        vertical: 6,
       },
     },
 
-    responsive: [
-      {
-        breakpoint: 640,
-        options: {
-          chart: {
-            width: 370,
-            height: 290,
-          },
-        },
-      },
-    ],
+    tooltip: {
+      enabled: true,
+    },
   };
-  const series = [45, 65, 25];
-  const [isOpen, setIsOpen] = useState(false);
 
-  function toggleDropdown() {
-    setIsOpen(!isOpen);
-  }
-
-  function closeDropdown() {
-    setIsOpen(false);
-  }
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
-      <div className="flex items-center justify-between mb-9">
-        <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
-          Sessions By Device
-        </h3>
-        <div className="relative inline-block">
-          <button className="dropdown-toggle" onClick={toggleDropdown}>
-            <MoreDotIcon className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 size-6" />
-          </button>
-          <Dropdown
-            isOpen={isOpen}
-            onClose={closeDropdown}
-            className="w-40 p-2"
-          >
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
-            >
-              View More
-            </DropdownItem>
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
-            >
-              Delete
-            </DropdownItem>
-          </Dropdown>
-        </div>
-      </div>
-      <div>
-        <div className="flex justify-center mx-auto">
-          <Chart options={options} series={series} type="donut" height={290} />
-        </div>
+    <div className="rounded-2xl bg-white border border-gray-200 p-6">
+      <h3 className="text-lg font-semibold text-gray-800 mb-4">
+        Request Status
+      </h3>
+
+      <div className="flex justify-center">
+        <Chart options={options} series={series} type="donut" height={320} />
       </div>
     </div>
   );

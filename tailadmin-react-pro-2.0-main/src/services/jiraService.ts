@@ -339,6 +339,9 @@ export const jiraService = {
   // These endpoints work with the new vendor_profiles and products tables
   // -------------------------------------------------------------------------
 
+// Get total vendor spend analytics
+getTotalVendorSpend: () => jiraApiCall("/api/analytics/vendor-total-spend"),
+
   // Get all vendors for dropdown (from new vendor_profiles system)
   getVendorProfilesVendors: () => jiraApiCall("/api/vendor-profiles/vendors"),
 

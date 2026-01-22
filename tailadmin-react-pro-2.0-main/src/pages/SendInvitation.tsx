@@ -4,7 +4,8 @@ import { useAuth } from "../context/AuthContext";
 import { invitationApi, departmentApi, organizationApi, authApi } from "../services/api";
 import PageMeta from "../components/common/PageMeta";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
-import { sendFirebaseInvitationEmail } from "../services/firebaseEmailService";
+import firebaseEmailService from "../services/firebaseEmailService";
+const { sendFirebaseInvitationEmail } = firebaseEmailService;
 
 interface Department {
   id: number;
@@ -212,13 +213,13 @@ export default function SendInvitation() {
         invitationData.organizationId = userOrganizationId;
       }
 
-      // Create the invitation record and get the token
-      const response = await invitationApi.createInvitation(invitationData);
+      // Create the invitation record using Firebase endpoint and get the token
+      const response = await invitationApi.createFirebaseInvitation(invitationData);
 
       // Send the invitation email using Firebase from the frontend
       const result = await sendFirebaseInvitationEmail(
         formData.email,
-        response.data.token, // Use the actual invitation token from backend
+        response.token, // Use the actual invitation token from backend
         invitationData
       );
 

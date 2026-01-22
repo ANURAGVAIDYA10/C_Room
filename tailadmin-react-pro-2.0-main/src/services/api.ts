@@ -286,6 +286,12 @@ export const invitationApi = {
   // Verify invitation by email only (for OAuth flow)
   verifyInvitationByEmail: (email: string) => apiCall(`/api/invitations/verify-email?email=${email}`),
   
+  // Mark invitation as sent
+  markSent: (data: { email: string; token: string }) => apiCall("/api/invitations/mark-sent", {
+    method: "POST",
+    body: JSON.stringify(data),
+  }),
+  
   // Complete invitation
   completeInvitation: (completionData: { 
     token: string; 

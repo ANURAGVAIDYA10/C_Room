@@ -62,7 +62,8 @@ public class InvitationController {
 
             return ResponseEntity.ok(Map.of(
                     "message", "Invitation created successfully",
-                    "invitationLink", invitationLink
+                    "invitationLink", invitationLink,
+                    "token", inv.getToken()
             ));
 
         } catch (Exception e) {
@@ -105,7 +106,8 @@ public class InvitationController {
 
             return ResponseEntity.ok(Map.of(
                     "message", "Firebase invitation created successfully",
-                    "invitationLink", invitationLink
+                    "invitationLink", invitationLink,
+                    "token", inv.getToken()
             ));
 
         } catch (Exception e) {
@@ -176,7 +178,45 @@ public class InvitationController {
     }
     
     // -------------------------------------------------------------------------
-    // 5️⃣ Verify invitation by email only (for OAuth flow)
+    // 5️⃣ Mark invitation as sent
+    // -------------------------------------------------------------------------
+    @PostMapping("/mark-sent")
+    public ResponseEntity<?> markAsSent(@RequestBody Map<String, String> body) {
+        try {
+            String email = body.get("email");
+            String token = body.get("token");
+            
+            if (email == null || token == null) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "error", "Email and token are required"
+                ));
+            }
+            
+            Invitation invitation = invitationService.getInvitationByToken(token)
+                .orElseThrow(() -> new Exception("Invitation not found"));
+            
+            if (!invitation.getEmail().equalsIgnoreCase(email)) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "error", "Email does not match invitation"
+                ));
+            }
+            
+            // Mark as sent
+            invitation.setSent(true);
+            invitationService.updateInvitation(invitation);
+            
+            return ResponseEntity.ok(Map.of(
+                    "message", "Invitation marked as sent successfully"
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", e.getMessage()
+            ));
+        }
+    }
+    
+    // -------------------------------------------------------------------------
+    // 6️⃣ Verify invitation by email only (for OAuth flow)
     // -------------------------------------------------------------------------
     @GetMapping("/verify-email")
     public ResponseEntity<?> verifyByEmail(@RequestParam String email) {

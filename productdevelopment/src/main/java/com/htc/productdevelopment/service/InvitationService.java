@@ -86,10 +86,20 @@ public class InvitationService {
     }
 
     // -------------------------------------------------------------
-    // 2️⃣ Send Firebase Invitation Email (stub method)
+    // 2️⃣ Send Firebase Invitation Email
     // -------------------------------------------------------------
     private void sendFirebaseInvitationEmail(Invitation inv) {
-        throw new UnsupportedOperationException("Firebase invitation email sending is no longer supported. Use regular email invitation instead.");
+        try {
+            // The actual Firebase email sending happens on the frontend
+            // We just need to mark the invitation as sent in the database
+            inv.setSent(true);
+            invitationRepository.save(inv);
+            
+            System.out.println("Firebase invitation created for: " + inv.getEmail());
+        } catch (Exception e) {
+            // Log error but don't fail the invitation creation
+            e.printStackTrace();
+        }
     }
 
     // -------------------------------------------------------------
@@ -292,6 +302,13 @@ public class InvitationService {
         }
         
         return inv;
+    }
+    
+    // -------------------------------------------------------------
+    // Update invitation
+    // -------------------------------------------------------------
+    public Invitation updateInvitation(Invitation invitation) {
+        return invitationRepository.save(invitation);
     }
     
     // -------------------------------------------------------------

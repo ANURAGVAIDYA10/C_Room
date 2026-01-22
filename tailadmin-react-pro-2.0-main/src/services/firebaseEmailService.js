@@ -1,6 +1,6 @@
 // Firebase Email Invitation Service
 import { sendSignInLinkToEmail, auth } from '../firebase'; // Updated import
-import api from './api';
+import { invitationApi } from './api';
 
 /**
  * Send invitation email using Firebase Email Link Authentication
@@ -13,27 +13,31 @@ export const sendFirebaseInvitationEmail = async (email, invitationToken, invita
   try {
     console.log('Sending Firebase invitation email to:', email);
     
+    // Validate inputs
+    if (!email || !invitationToken) {
+      throw new Error('Email and invitation token are required');
+    }
+    
+    // Validate email format
+    const emailRegex = /^[\w\.-]+@[\w\.-]+\.[A-Za-z]{2,}$/;
+    if (!emailRegex.test(email)) {
+      throw new Error('Invalid email format');
+    }
+    
+    // Get the current origin
+    const currentOrigin = window.location.origin;
+    console.log('Current origin:', currentOrigin);
+    
     // Configure email action settings for Firebase
     const actionCodeSettings = {
       // URL where user will land after clicking the email link
-      url: `${window.location.origin}/complete-invitation?token=${invitationToken}&email=${encodeURIComponent(email)}`,
+      url: `${currentOrigin}/complete-invitation?token=${invitationToken}&email=${encodeURIComponent(email)}`,
       
-      // Whether to handle the code in the app (false = redirect to website)
-      handleCodeInApp: false,
-      
-      // iOS and Android settings (optional)
-      iOS: {
-        bundleId: 'com.yourcompany.yourapp'
-      },
-      android: {
-        packageName: 'com.yourcompany.yourapp',
-        installApp: true,
-        minimumVersion: '12'
-      },
-      
-      // Dynamic link settings
-      dynamicLinkDomain: 'yourapp.page.link'
+      // Whether to handle the code in the app (true = handle in app, false = redirect to website)
+      handleCodeInApp: false // Set to false to redirect to website
     };
+    
+    console.log('Action code settings:', actionCodeSettings);
 
     // Send the email link using Firebase
     await sendSignInLinkToEmail(auth, email, actionCodeSettings);
@@ -42,7 +46,7 @@ export const sendFirebaseInvitationEmail = async (email, invitationToken, invita
     
     // Mark invitation as sent in backend
     try {
-      await api.post('/api/invitations/mark-sent', { 
+      await invitationApi.markSent({ 
         email,
         token: invitationToken 
       });
@@ -60,10 +64,34 @@ export const sendFirebaseInvitationEmail = async (email, invitationToken, invita
   } catch (error) {
     console.error('Error sending Firebase invitation email:', error);
     
+    // Provide more specific error messages
+    let errorMessage = 'Failed to send invitation email';
+    if (error.code) {
+      switch (error.code) {
+        case 'auth/argument-error':
+          errorMessage = 'Invalid argument provided to Firebase. Check the URL format and domain authorization.';
+          break;
+        case 'auth/invalid-email':
+          errorMessage = 'Invalid email address.';
+          break;
+        case 'auth/user-not-found':
+          errorMessage = 'User not found.';
+          break;
+        case 'auth/network-request-failed':
+          errorMessage = 'Network error occurred. Please check your connection.';
+          break;
+        default:
+          errorMessage = error.message || 'An error occurred while sending the email.';
+      }
+    } else {
+      errorMessage = error.message || 'An unknown error occurred.';
+    }
+    
     return {
       success: false,
       error: error.message,
-      message: 'Failed to send invitation email'
+      code: error.code,
+      message: errorMessage
     };
   }
 };

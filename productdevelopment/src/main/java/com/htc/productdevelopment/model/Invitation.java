@@ -46,6 +46,31 @@ public class Invitation {
     @Column(nullable = false)
     private boolean sent = false;
     
+    @Column(name = "attempt_count")
+    private Integer attemptCount;
+    
+    @Column(name = "ip_address")
+    private String ipAddress;
+    
+    @Column(name = "max_attempts")
+    private Integer maxAttempts;
+    
+    @Column(name = "user_agent")
+    private String userAgent;
+    
+    @Column(name = "verified_at")
+    private LocalDateTime verifiedAt;
+    
+    @Column(name = "accepted_at")
+    private LocalDateTime acceptedAt;
+    
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private InvitationStatus status = InvitationStatus.PENDING;
+    
+    @Column(name = "user_created", nullable = false)
+    private Boolean userCreated = false;
+    
     // Explicit getters for boolean fields
     public boolean isUsed() {
         return used;
@@ -62,5 +87,13 @@ public class Invitation {
     
     public void setSent(boolean sent) {
         this.sent = sent;
+    }
+    
+    public Boolean getUserCreated() {
+        return userCreated;
+    }
+    
+    public void setUserCreated(Boolean userCreated) {
+        this.userCreated = userCreated;
     }
 }

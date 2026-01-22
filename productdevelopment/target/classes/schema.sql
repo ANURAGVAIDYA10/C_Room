@@ -148,3 +148,35 @@ CREATE INDEX IF NOT EXISTS idx_notifications_recipient_department_id ON notifica
 CREATE INDEX IF NOT EXISTS idx_notifications_recipient_organization_id ON notifications(recipient_organization_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read);
 CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at);
+
+-- Update invited_by column type in invitations table if it exists as bigint
+-- This will convert the column from bigint to varchar(255)
+DO $$
+BEGIN
+  IF EXISTS (SELECT FROM information_schema.columns 
+      WHERE table_name = 'invitations' AND column_name = 'invited_by' AND data_type = 'bigint')
+  THEN
+    ALTER TABLE invitations ALTER COLUMN invited_by TYPE VARCHAR(255);
+  END IF;
+END $$;
+
+-- Create invitations table if it doesn't exist
+CREATE TABLE IF NOT EXISTS invitations (
+    id BIGSERIAL PRIMARY KEY,
+    email VARCHAR(255) NOT NULL,
+    role VARCHAR(50) NOT NULL,
+    department_id BIGINT,
+    organization_id BIGINT,
+    invited_by VARCHAR(255),
+    token VARCHAR(255) NOT NULL UNIQUE,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    used BOOLEAN NOT NULL DEFAULT FALSE,
+    sent BOOLEAN NOT NULL DEFAULT FALSE
+);
+
+-- Add indexes for better query performance on invitations table
+CREATE INDEX IF NOT EXISTS idx_invitations_email ON invitations(email);
+CREATE INDEX IF NOT EXISTS idx_invitations_token ON invitations(token);
+CREATE INDEX IF NOT EXISTS idx_invitations_used ON invitations(used);
+CREATE INDEX IF NOT EXISTS idx_invitations_created_at ON invitations(created_at);

@@ -14,6 +14,8 @@ import org.slf4j.LoggerFactory;
 import java.util.Optional;
 import java.util.List;
 
+import com.google.firebase.auth.FirebaseAuthException;
+
 
 
 
@@ -25,13 +27,16 @@ public class UserService {
     private final UserRepository userRepository;
     private final DepartmentRepository departmentRepository;
     private final OrganizationService organizationService;
+    private final FirebaseService firebaseService;
 
     public UserService(UserRepository userRepository,
                        DepartmentRepository departmentRepository,
-                       OrganizationService organizationService) {
+                       OrganizationService organizationService,
+                       FirebaseService firebaseService) {
         this.userRepository = userRepository;
         this.departmentRepository = departmentRepository;
         this.organizationService = organizationService;
+        this.firebaseService = firebaseService;
     }
 
     // -------------------------------------------------------
@@ -182,6 +187,14 @@ public class UserService {
         // Delete associated invitations
         deleteInvitationsByEmail(user.getEmail());
 
+        // Delete user from Firebase
+        try {
+            firebaseService.deleteUserFromFirebase(uid);
+        } catch (FirebaseAuthException e) {
+            logger.error("Error deleting user from Firebase: {}", e.getMessage(), e);
+            // Continue with database deletion even if Firebase deletion fails
+        }
+
         userRepository.delete(user);
     }
 
@@ -191,6 +204,16 @@ public class UserService {
 
         // Delete associated invitations
         deleteInvitationsByEmail(user.getEmail());
+
+        // Delete user from Firebase if UID exists
+        if (user.getUid() != null && !user.getUid().isEmpty()) {
+            try {
+                firebaseService.deleteUserFromFirebase(user.getUid());
+            } catch (FirebaseAuthException e) {
+                logger.error("Error deleting user from Firebase: {}", e.getMessage(), e);
+                // Continue with database deletion even if Firebase deletion fails
+            }
+        }
 
         userRepository.delete(user);
     }

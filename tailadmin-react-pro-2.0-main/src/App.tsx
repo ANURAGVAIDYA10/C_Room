@@ -3,6 +3,8 @@ import { BrowserRouter as Router, Routes, Route, useNavigate, Navigate } from "r
 import { AuthProvider } from "./context/AuthContext";
 import { NotificationProvider } from "./context/NotificationContext";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
+import { PublicRoute } from "./components/auth/PublicRoute";
+import { HomeRedirect } from "./components/auth/HomeRedirect";
 import ProtectedPermissionRoute from "./components/auth/ProtectedPermissionRoute";
 import { Permission } from "./config/permissions";
 import CreateIssueModal from "./main pages/Request Creation/CreateIssueModal";
@@ -144,18 +146,34 @@ export default function App() {
         <ScrollToTop />
         <Routes>
           {/* Public Routes - No Auth Required */}
-          <Route path="/signin" element={<SignIn />} />
-          <Route path="/signup" element={<SignUp />} />
-          <Route path="/complete-invitation" element={<CompleteInvitation />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/two-step-verification" element={<TwoStepVerification />} />
+          <Route path="/signin" element={
+            <PublicRoute>
+              <SignIn />
+            </PublicRoute>
+          } />
+          <Route path="/signup" element={
+            <PublicRoute>
+              <SignUp />
+            </PublicRoute>
+          } />
+          <Route path="/complete-invitation" element={
+            <PublicRoute>
+              <CompleteInvitation />
+            </PublicRoute>
+          } />
+          <Route path="/reset-password" element={
+            <PublicRoute>
+              <ResetPassword />
+            </PublicRoute>
+          } />
+          <Route path="/two-step-verification" element={
+            <PublicRoute>
+              <TwoStepVerification />
+            </PublicRoute>
+          } />
           
           {/* Root route - redirect to dashboard if authenticated, otherwise to signin */}
-          <Route path="/" element={
-            <ProtectedRoute>
-              <Navigate to="/ecommerce/dashboard" replace />
-            </ProtectedRoute>
-          } />
+          <Route path="/" element={<HomeRedirect />} />
           
           {/* Alternative Layout - for special pages (public) */}
           <Route element={<AlternativeLayout />}>

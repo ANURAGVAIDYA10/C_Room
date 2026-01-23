@@ -145,7 +145,8 @@ public class SessionInterceptor implements HandlerInterceptor {
                uri.startsWith("/assets/") ||
                uri.startsWith("/favicon.ico") ||
                uri.startsWith("/api/auth/forgot-password") ||
-               uri.startsWith("/api/auth/reset-password");
+               uri.startsWith("/api/auth/reset-password") ||
+               uri.equals("/api/auth/session-config");
     }
 
     private boolean shouldRefreshToken(String token) {

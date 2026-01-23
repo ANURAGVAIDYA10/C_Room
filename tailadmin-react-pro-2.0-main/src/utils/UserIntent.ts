@@ -55,6 +55,25 @@ export function updateLastActivity(): void {
   console.log('[SESSION_MONITOR] Activity reset - last activity timer refreshed');
 }
 
+// Session timeout in minutes - will be fetched from backend configuration
+let SESSION_TIMEOUT_MINUTES = 5; // Default value until configuration is loaded
+
+// Function to load session timeout configuration from environment variables (build-time config)
+export async function loadSessionConfig(): Promise<void> {
+  try {
+    // Read from environment variables (synchronized with backend during build)
+    const envTimeout = import.meta.env.VITE_SESSION_TIMEOUT_MINUTES;
+    if (envTimeout && !isNaN(parseInt(envTimeout, 10))) {
+      SESSION_TIMEOUT_MINUTES = parseInt(envTimeout, 10);
+      console.log('[SESSION_CONFIG] Loaded session timeout from environment:', SESSION_TIMEOUT_MINUTES, 'minutes');
+    } else {
+      console.log('[SESSION_CONFIG] Using default session timeout:', SESSION_TIMEOUT_MINUTES, 'minutes');
+    }
+  } catch (error) {
+    console.error('[SESSION_CONFIG] Error reading environment config, using default timeout:', error);
+  }
+}
+
 export function checkInactivity(): boolean {
   const now = Date.now();
   const elapsedMinutes = (now - lastActivityTime) / (1000 * 60);
@@ -62,8 +81,8 @@ export function checkInactivity(): boolean {
   
   console.log(`[SESSION_MONITOR] Time since last activity: ${elapsedMinutes.toFixed(2)} minutes | Total session time: ${totalSessionMinutes.toFixed(2)} minutes`);
   
-  // Return true if more than 2 minutes have passed since last activity
-  return elapsedMinutes >= 2;
+  // Return true if more than SESSION_TIMEOUT_MINUTES have passed since last activity
+  return elapsedMinutes >= SESSION_TIMEOUT_MINUTES;
 }
 
 // Function to handle logout on inactivity
@@ -125,7 +144,7 @@ export function startSessionMonitoring(): void {
   
   console.log('[SESSION_MONITOR] Session monitoring started at:', new Date().toISOString());
   console.log('[SESSION_MONITOR] Initial activity time set to current time');
-  console.log('[SESSION_MONITOR] ⏱️  Inactivity timeout set to 2 minutes');
+  console.log(`[SESSION_MONITOR] ⏱️  Inactivity timeout set to ${SESSION_TIMEOUT_MINUTES} minutes (loaded from backend configuration)`);
   
   // Clear any existing interval
   if (inactivityCheckInterval) {
@@ -154,7 +173,7 @@ export function startSessionMonitoring(): void {
   // Set up periodic checks every 10 seconds
   inactivityCheckInterval = setInterval(() => {
     if (checkInactivity()) {
-      console.log('[SESSION_MONITOR] ⚠️ SESSION TIMEOUT - 2+ minutes of inactivity detected');
+      console.log(`[SESSION_MONITOR] ⚠️ SESSION TIMEOUT - ${SESSION_TIMEOUT_MINUTES}+ minutes of inactivity detected`);
       handleInactivityLogout();
     }
   }, 10000); // Check every 10 seconds

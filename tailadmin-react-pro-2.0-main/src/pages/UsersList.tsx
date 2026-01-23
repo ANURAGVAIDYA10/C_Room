@@ -89,9 +89,9 @@ export default function UsersList() {
         if (userOrganizationId !== null && userDepartmentId !== null) {
           usersData = await userApi.getUsersByOrganizationAndDepartment(userOrganizationId, userDepartmentId);
 
-          // 🚀 FILTER HERE → Admin should only see REQUESTER + APPROVER
+          // 🚀 FILTER HERE → Admin should see REQUESTER + APPROVER + ADMIN (but not SUPER_ADMIN)
           usersData = usersData.filter((u: UserData) =>
-            u.role === "REQUESTER" || u.role === "APPROVER"
+            u.role === "REQUESTER" || u.role === "APPROVER" || u.role === "ADMIN"
           );
         } else {
           usersData = [];

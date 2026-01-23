@@ -636,7 +636,15 @@ public class AuthController {
                     updated = true;
                 }
                 
-                if (!isEmailVerified && user.getActive()) {
+                // Note: Previously, we would deactivate users if their email wasn't verified
+                // if (!isEmailVerified && user.getActive()) {
+                //     user.setActive(isEmailVerified);
+                //     updated = true;
+                // }
+                
+                // Updated behavior: Keep users active regardless of email verification status
+                // Only update if the user is currently inactive but their email is now verified
+                if (isEmailVerified && !user.getActive()) {
                     user.setActive(isEmailVerified);
                     updated = true;
                 }
@@ -871,6 +879,30 @@ public class AuthController {
             response.put("status", "ERROR");
             response.put("message", "Test failed: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+    
+    /**
+     * Get session configuration including timeout values
+     * @return Session configuration
+     */
+    @GetMapping("/session-config")
+    public ResponseEntity<?> getSessionConfig() {
+        logger.info("Received request to get session configuration");
+        
+        try {
+            Map<String, Object> config = new HashMap<>();
+            config.put("sessionTimeoutMinutes", sessionConfig.getSessionTimeoutMinutes());
+            config.put("jwtExpirationMinutes", jwtUtil.getJwtTokenValidityMinutes());
+            
+            logger.info("Session configuration retrieved: {}", config);
+            return ResponseEntity.ok(config);
+            
+        } catch (Exception e) {
+            logger.error("Error getting session configuration: {}", e.getMessage(), e);
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Error getting session configuration: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
     }
 }

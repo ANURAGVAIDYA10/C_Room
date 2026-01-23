@@ -355,6 +355,13 @@ export const authApi = {
       method: 'POST',
       credentials: 'include', // Include cookies for logout
     });
+  },
+  
+  // Get session configuration
+  getSessionConfig: async () => {
+    return apiCall('/api/auth/session-config', {
+      method: 'GET',
+    });
   }
 };
 

@@ -22,6 +22,10 @@ public class JwtUtil {
     @Value("${app.jwt.expiration.minutes:60}")
     private int jwtTokenValidityMinutes;
 
+    public int getJwtTokenValidityMinutes() {
+        return jwtTokenValidityMinutes;
+    }
+
     public JwtUtil(@Value("${jwt.secret:MySuperSecretKeyForHS512AlgorithmThatIsAtLeast512BitsLongAndSecure}") String jwtSecret) {
         // For HS512, we need at least 512-bit (64-byte) key
         // If the provided key is not long enough, pad it or generate a secure key

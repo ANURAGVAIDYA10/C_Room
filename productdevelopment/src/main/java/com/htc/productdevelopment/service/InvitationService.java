@@ -1,6 +1,7 @@
 package com.htc.productdevelopment.service;
 
 import com.htc.productdevelopment.model.Invitation;
+import com.htc.productdevelopment.model.InvitationStatus;
 import com.htc.productdevelopment.model.User;
 import com.htc.productdevelopment.model.Organization;
 import com.htc.productdevelopment.repository.InvitationRepository;
@@ -52,14 +53,14 @@ public class InvitationService {
     // -------------------------------------------------------------
     // 1️⃣ Create Invitation
     // -------------------------------------------------------------
-    public Invitation createInvitation(String email, String role, Long deptId, Long orgId, String invitedBy) {
+    public Invitation createInvitation(String email, String role, Long deptId, Long orgId, Long invitedBy) {
         return createInvitation(email, role, deptId, orgId, invitedBy, false);
     }
     
     // -------------------------------------------------------------
     // 1️⃣ Create Invitation with Firebase option
     // -------------------------------------------------------------
-    public Invitation createInvitation(String email, String role, Long deptId, Long orgId, String invitedBy, boolean useFirebase) {
+    public Invitation createInvitation(String email, String role, Long deptId, Long orgId, Long invitedBy, boolean useFirebase) {
 
         Invitation inv = new Invitation();
         inv.setEmail(email.toLowerCase().trim());
@@ -70,7 +71,7 @@ public class InvitationService {
         inv.setToken(UUID.randomUUID().toString());
         inv.setCreatedAt(LocalDateTime.now());
         inv.setExpiresAt(LocalDateTime.now().plusHours(48)); // 48 hours expiration
-        inv.setUsed(false);
+        inv.setStatus(InvitationStatus.PENDING);
         inv.setSent(false);
 
         Invitation savedInvitation = invitationRepository.save(inv);
@@ -151,24 +152,48 @@ public class InvitationService {
     // 4️⃣ Verify token BEFORE showing Google/Microsoft login
     // -------------------------------------------------------------
     public Invitation verifyInvitation(String token, String email) throws Exception {
+        try {
+            if (token == null || token.isEmpty()) {
+                throw new Exception("Invitation token is required.");
+            }
+            
+            if (email == null || email.isEmpty()) {
+                throw new Exception("Email is required.");
+            }
 
-        Optional<Invitation> opt = invitationRepository.findByTokenAndEmail(token, email.toLowerCase().trim());
+            Optional<Invitation> opt = invitationRepository.findByTokenAndEmail(token, email.toLowerCase().trim());
 
-        if (opt.isEmpty()) {
-            throw new Exception("Invalid or mismatched invitation link.");
+            if (opt.isEmpty()) {
+                throw new Exception("Invalid or mismatched invitation link.");
+            }
+
+            Invitation inv = opt.get();
+            
+            // Add null checks
+            if (inv.getStatus() == null) {
+                throw new Exception("Invitation status is invalid.");
+            }
+
+            // Allow verification of ACCEPTED invitations for display purposes
+            // But check expiration regardless of status
+            if (inv.getExpiresAt() == null) {
+                throw new Exception("Invitation expiration date is missing.");
+            }
+
+            if (LocalDateTime.now().isAfter(inv.getExpiresAt())) {
+                throw new Exception("This invitation link has expired.");
+            }
+
+            // Only reject if it's been accepted AND we're trying to complete it (not just verify for display)
+            // This check should be handled in the completeInvitation method instead
+            
+            return inv;
+        } catch (Exception e) {
+            // Log the actual error for debugging
+            System.err.println("Error in verifyInvitation: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
         }
-
-        Invitation inv = opt.get();
-
-        if (inv.isUsed()) {
-            throw new Exception("This link has already been used.");
-        }
-
-        if (LocalDateTime.now().isAfter(inv.getExpiresAt())) {
-            throw new Exception("This invitation link has expired.");
-        }
-
-        return inv;
     }
 
     // -------------------------------------------------------------
@@ -185,7 +210,7 @@ public class InvitationService {
 
         // 2. Validate invitation
         // Check if invitation is already used
-        if (inv.isUsed()) {
+        if (inv.getStatus() == InvitationStatus.ACCEPTED) {
             throw new Exception("This invitation has already been used.");
         }
 
@@ -230,8 +255,8 @@ public class InvitationService {
         // 7. Save updates
         userService.updateUserById(created.getId(), created);
 
-        // 8. Mark invitation as used
-        inv.setUsed(true);
+        // 8. Mark invitation as accepted
+        inv.setStatus(InvitationStatus.ACCEPTED);
         invitationRepository.save(inv);
 
         return created;
@@ -240,7 +265,7 @@ public class InvitationService {
     // -------------------------------------------------------------
     // 5️⃣ Complete Invitation (after Google/Microsoft login & setting password)
     // -------------------------------------------------------------
-    public User completeInvitation(String token, String email, String fullName, String password) throws Exception {
+    public User completeInvitation(String token, String email, String fullName, String password, String firebaseUid) throws Exception {
         // For OAuth flow, we might not have a token, so we'll verify by email
         Invitation inv;
         if (token != null && !token.isEmpty() && !token.startsWith("oauth_")) {
@@ -257,15 +282,36 @@ public class InvitationService {
             throw new Exception("User already exists in database with this email. Please sign in instead of creating a new account.");
         }
         
-        // 2. Check if user already exists in Firebase (stub method)
-        User firebaseUser;
-        boolean userAlreadyExists = false;
-        try {
-            throw new UnsupportedOperationException("Firebase user creation is no longer supported. Use the invitation-based flow with JWT authentication instead.");
-        } catch (Exception e) {
-            // Re-throw the exception
-            throw e;
+        // 2. Create DB user using invitation data WITH Firebase UID
+        User created = userService.saveUserToDB(
+                firebaseUid, // Now we have the Firebase UID
+                email,
+                fullName,
+                parseRole(inv.getRole())
+        );
+
+        // 3. Add department if present
+        if (inv.getDepartmentId() != null) {
+            created.setDepartment(userService.getDepartmentFromId(inv.getDepartmentId()));
         }
+
+        // 4. Add organization if present
+        if (inv.getOrganizationId() != null) {
+            created.setOrganization(userService.getOrganizationFromId(inv.getOrganizationId()));
+        } else if (inv.getRole() != null && inv.getRole().equals("SUPER_ADMIN")) {
+            // If role is SUPER_ADMIN and no organization is provided, assign to "Cost Room"
+            Organization costRoomOrg = organizationService.getOrCreateCostRoomOrganization();
+            created.setOrganization(costRoomOrg);
+        }
+
+        // Save updates
+        userService.updateUserById(created.getId(), created);
+
+        // 5. Mark invitation as accepted
+        inv.setStatus(InvitationStatus.ACCEPTED);
+        invitationRepository.save(inv);
+
+        return created;
     }
     
     private User.Role parseRole(String role) {
@@ -288,7 +334,7 @@ public class InvitationService {
     // Verify invitation by email only (for OAuth flow)
     // -------------------------------------------------------------
     public Invitation verifyInvitationByEmail(String email) throws Exception {
-        List<Invitation> invitations = invitationRepository.findByEmailAndUsedFalseOrderByCreatedAtDesc(email.toLowerCase().trim());
+        List<Invitation> invitations = invitationRepository.findByEmailAndStatusOrderByCreatedAtDesc(email.toLowerCase().trim(), InvitationStatus.PENDING);
         
         if (invitations.isEmpty()) {
             throw new Exception("No pending invitation found for this email.");
@@ -315,7 +361,7 @@ public class InvitationService {
     // Delete pending invitations by email
     // -------------------------------------------------------------
     public void deletePendingInvitationsByEmail(String email) {
-        List<Invitation> pendingInvitations = invitationRepository.findByEmailAndUsedFalseOrderByCreatedAtDesc(email.toLowerCase().trim());
+        List<Invitation> pendingInvitations = invitationRepository.findByEmailAndStatusOrderByCreatedAtDesc(email.toLowerCase().trim(), InvitationStatus.PENDING);
         if (!pendingInvitations.isEmpty()) {
             invitationRepository.deleteAll(pendingInvitations);
         }

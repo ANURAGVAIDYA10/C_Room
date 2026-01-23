@@ -5,13 +5,13 @@ public class FirebaseInvitationRequestDTO {
     private String role;
     private Long departmentId;
     private Long organizationId;
-    private String invitedBy;
+    private Long invitedBy;
 
     // Default constructor
     public FirebaseInvitationRequestDTO() {}
 
     // Constructor with all fields
-    public FirebaseInvitationRequestDTO(String email, String role, Long departmentId, Long organizationId, String invitedBy) {
+    public FirebaseInvitationRequestDTO(String email, String role, Long departmentId, Long organizationId, Long invitedBy) {
         this.email = email;
         this.role = role;
         this.departmentId = departmentId;
@@ -52,11 +52,11 @@ public class FirebaseInvitationRequestDTO {
         this.organizationId = organizationId;
     }
 
-    public String getInvitedBy() {
+    public Long getInvitedBy() {
         return invitedBy;
     }
 
-    public void setInvitedBy(String invitedBy) {
+    public void setInvitedBy(Long invitedBy) {
         this.invitedBy = invitedBy;
     }
 }

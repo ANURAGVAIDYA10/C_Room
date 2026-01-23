@@ -60,6 +60,8 @@ public class WebConfig implements WebMvcConfigurer {
                 .excludePathPatterns(
                     "/api/auth/login**",
                     "/api/auth/complete-invitation**",
+                    "/api/invitations/verify**",  // Add invitation verification to exclusions
+                    "/api/invitations/complete**", // Add invitation completion to exclusions
                     "/api/auth/exchange-token",
                     "/api/auth/exchange-token/**",  // Add these to exclude exchange-token from session validation
                     "/api/auth/refresh**",

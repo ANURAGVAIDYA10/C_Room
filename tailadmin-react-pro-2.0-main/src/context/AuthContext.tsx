@@ -2,7 +2,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
 import { auth } from "../firebase";
 import { onAuthStateChanged, signOut, User } from "firebase/auth";
-import { userService } from "../services/userService";
 import { authApi } from "../services/api";
 import { Permission, hasPermission, hasAnyPermission, hasAllPermissions } from "../config/permissions";
 import { startSessionMonitoring, stopSessionMonitoring } from "../utils/UserIntent";
@@ -152,6 +151,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (user) {
         try {
           console.log('AuthContext: User is signed in, getting Firebase ID token...');
+          
+          // Check if we're currently in invitation completion flow
+          const isInInvitationFlow = window.location.pathname.includes('/complete-invitation');
+          
+          if (isInInvitationFlow) {
+            console.log('AuthContext: In invitation flow, skipping automatic token exchange');
+            // Set basic user data but don't exchange token
+            setCurrentUser(user);
+            setUserRole('INVITATION_IN_PROGRESS');
+            setSessionReady(true);
+            return;
+          }
+          
           // Get Firebase ID token
           const firebaseToken = await user.getIdToken();
           console.log('AuthContext: Got Firebase token, length=', firebaseToken.length);
@@ -199,6 +211,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             
             // Broadcast login to other tabs
             broadcastLogin();
+          } else if (response && response.requires_invitation === "true") {
+            console.log('AuthContext: User needs to complete invitation first');
+            // Redirect to complete invitation page or show appropriate message
+            // For now, we'll set a flag to indicate invitation is required
+            setUserRole('INVITATION_REQUIRED');
+            setUserData(null);
+            setCurrentUser(user); // Still set the Firebase user
+            
+            // Set default states
+            setIsAdmin(false);
+            setIsSuperAdmin(false);
+            setIsApprover(false);
+            setIsRequester(false);
+            
+            setSessionReady(true);
+            console.log('AuthContext: Session ready set to true (invitation required)');
           } else {
             console.error('AuthContext: Failed to exchange token or invalid response:', response);
           }

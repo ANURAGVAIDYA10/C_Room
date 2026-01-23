@@ -29,7 +29,7 @@ public class Invitation {
     private Long organizationId;
     
     @Column(name = "invited_by")
-    private String invitedBy;
+    private Long invitedBy;
 
     @Column(nullable = false, unique = true)
     private String token;
@@ -41,26 +41,48 @@ public class Invitation {
     private LocalDateTime createdAt = LocalDateTime.now();
 
     @Column(nullable = false)
-    private boolean used = false;
-
-    @Column(nullable = false)
     private boolean sent = false;
     
-    // Explicit getters for boolean fields
-    public boolean isUsed() {
-        return used;
-    }
+    @Column(name = "attempt_count")
+    private Integer attemptCount;
     
+    @Column(name = "ip_address")
+    private String ipAddress;
+    
+    @Column(name = "max_attempts")
+    private Integer maxAttempts;
+    
+    @Column(name = "user_agent")
+    private String userAgent;
+    
+    @Column(name = "verified_at")
+    private LocalDateTime verifiedAt;
+    
+    @Column(name = "accepted_at")
+    private LocalDateTime acceptedAt;
+    
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private InvitationStatus status = InvitationStatus.PENDING;
+    
+    @Column(name = "user_created", nullable = false)
+    private Boolean userCreated = false;
+    
+    // Explicit getters for boolean fields
     public boolean isSent() {
         return sent;
     }
     
     // Explicit setters for boolean fields
-    public void setUsed(boolean used) {
-        this.used = used;
-    }
-    
     public void setSent(boolean sent) {
         this.sent = sent;
+    }
+    
+    public Boolean getUserCreated() {
+        return userCreated;
+    }
+    
+    public void setUserCreated(Boolean userCreated) {
+        this.userCreated = userCreated;
     }
 }

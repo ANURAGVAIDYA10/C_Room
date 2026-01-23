@@ -7,7 +7,7 @@ const apiCache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache duration
 
 // Generic API call function that relies on JWT cookie authentication
-export async function apiCall(endpoint: string, options: RequestInit = {}, useCache = false) {
+export async function apiCall(endpoint: string, options: RequestInit & { bypassRedirect?: boolean } = {}, useCache = false) {
   // Check cache first if enabled
   const cacheKey = `${endpoint}-${JSON.stringify(options)}`;
   if (useCache) {
@@ -90,7 +90,8 @@ export async function apiCall(endpoint: string, options: RequestInit = {}, useCa
       }
       
       // If receiving 401, it means session expired
-      if (response.status === 401) {
+      // But bypass redirect for certain endpoints like invitation verification
+      if (response.status === 401 && !options.bypassRedirect) {
         console.warn('Received 401 - session may have expired, redirecting to login');
 
         // Clear any local session data
@@ -281,7 +282,7 @@ export const invitationApi = {
   }),
   
   // Verify invitation
-  verifyInvitation: (token: string, email: string) => apiCall(`/api/invitations/verify?token=${token}&email=${email}`),
+  verifyInvitation: (token: string, email: string) => apiCall(`/api/invitations/verify?token=${token}&email=${email}`, { bypassRedirect: true }),
   
   // Verify invitation by email only (for OAuth flow)
   verifyInvitationByEmail: (email: string) => apiCall(`/api/invitations/verify-email?email=${email}`),
@@ -297,10 +298,12 @@ export const invitationApi = {
     token: string; 
     email: string; 
     fullName: string; 
-    password: string 
+    password: string;
+    firebaseUid?: string; // Optional Firebase UID
   }) => apiCall("/api/invitations/complete", {
     method: "POST",
     body: JSON.stringify(completionData),
+    bypassRedirect: true  // Bypass redirect for invitation completion
   }),
 };
 

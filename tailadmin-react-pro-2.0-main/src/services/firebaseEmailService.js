@@ -34,7 +34,10 @@ export const sendFirebaseInvitationEmail = async (email, invitationToken, invita
       url: `${currentOrigin}/complete-invitation?token=${invitationToken}&email=${encodeURIComponent(email)}`,
       
       // Whether to handle the code in the app (true = handle in app, false = redirect to website)
-      handleCodeInApp: false // Set to false to redirect to website
+      handleCodeInApp: true, // Must be true for email link authentication
+      
+      // Additional settings
+      // iOS and Android settings can be added here if needed
     };
     
     console.log('Action code settings:', actionCodeSettings);
@@ -69,7 +72,7 @@ export const sendFirebaseInvitationEmail = async (email, invitationToken, invita
     if (error.code) {
       switch (error.code) {
         case 'auth/argument-error':
-          errorMessage = 'Invalid argument provided to Firebase. Check the URL format and domain authorization.';
+          errorMessage = 'Invalid Firebase configuration. Please ensure:\n1. The domain (localhost) is authorized in Firebase Console\n2. Email link authentication is enabled\n3. The URL format is correct';
           break;
         case 'auth/invalid-email':
           errorMessage = 'Invalid email address.';

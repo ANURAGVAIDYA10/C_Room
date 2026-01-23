@@ -53,7 +53,7 @@ public class AuthController {
     private final InvitationService invitationService;
     private final OrganizationService organizationService;
     
-    @Value("${firebase.project.id:sample-app-9e5fc}")
+    @Value("${firebase.project.id}")
     private String firebaseProjectId;
     
     /**
@@ -567,7 +567,7 @@ public class AuthController {
             HttpServletResponse response,
             @RequestBody Map<String, String> tokenRequest) {
         
-        logger.info("=== EXCHANGE-TOKEN ENDPOINT CALLED ===");
+        logger.info("=== EXCHANGE-TOKEN ENDPOINT CALLED (Enterprise-Grade Email Lookup) ===");
         logger.info("Request from IP: {}", request.getRemoteAddr());
         logger.info("User-Agent: {}", request.getHeader("User-Agent"));
         
@@ -610,63 +610,50 @@ public class AuthController {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
             }
             
-            // Check if user exists in database by UID OR email
-            logger.info("Checking if user exists in database...");
-            Optional<User> existingUserOpt = userService.getUserByUid(firebaseUid);
-            Optional<User> existingUserByEmailOpt = userRepository.findByEmail(firebaseEmail);
+            // Check if user exists in database by EMAIL (enterprise-grade approach)
+            logger.info("Checking if user exists in database by email...");
+            Optional<User> existingUserOpt = userRepository.findByEmail(firebaseEmail);
             
-            logger.info("User exists by UID: {}", existingUserOpt.isPresent());
-            logger.info("User exists by email: {}", existingUserByEmailOpt.isPresent());
+            logger.info("User exists by email: {}", existingUserOpt.isPresent());
             
             User user;
             
             if (existingUserOpt.isPresent()) {
-                logger.info("Found user by UID, updating...");
-                // User exists by UID, update if needed
+                logger.info("Found user by email, updating Firebase UID if needed...");
+                // User exists by email, update Firebase UID if it's missing or different
                 user = existingUserOpt.get();
                 
-                // Update user info if changed
+                // Update Firebase UID if it's missing or different
                 boolean updated = false;
+                if (user.getUid() == null || !user.getUid().equals(firebaseUid)) {
+                    user.setUid(firebaseUid);
+                    updated = true;
+                }
+                
+                // Update user info if changed
                 if (firebaseName != null && !firebaseName.equals(user.getName())) {
                     user.setName(firebaseName);
                     updated = true;
                 }
+                
                 if (!isEmailVerified && user.getActive()) {
                     user.setActive(isEmailVerified);
-                    updated = true;
-                }
-                // Update email if it's different (handle edge cases)
-                if (!firebaseEmail.equals(user.getEmail())) {
-                    user.setEmail(firebaseEmail);
                     updated = true;
                 }
                 
                 if (updated) {
                     user = userService.updateUserById(user.getId(), user);
-                    logger.info("User updated successfully");
+                    logger.info("User updated successfully with Firebase UID: {}", firebaseUid);
                 }
-            } else if (existingUserByEmailOpt.isPresent()) {
-                logger.info("Found user by email, updating Firebase UID...");
-                // User exists by email but different UID - this is the problematic case
-                // Update the existing user with the new Firebase UID
-                user = existingUserByEmailOpt.get();
-                user.setUid(firebaseUid);
-                user.setName(firebaseName != null ? firebaseName : user.getName());
-                user.setActive(isEmailVerified);
-                user = userService.updateUserById(user.getId(), user);
-                logger.info("Updated existing user with email {} to new Firebase UID: {}", firebaseEmail, firebaseUid);
             } else {
-                logger.info("Creating new user...");
-                // User doesn't exist, create new user
-                user = new User();
-                user.setUid(firebaseUid);
-                user.setEmail(firebaseEmail);
-                user.setName(firebaseName != null ? firebaseName : "");
-                user.setRole(User.Role.REQUESTER); // Default role
-                user.setActive(isEmailVerified); // Only active if email is verified
+                logger.info("User doesn't exist in database, but this should only happen through invitation flow");
+                logger.info("Rejecting authentication - user must complete invitation first");
                 
-                user = userRepository.save(user);
-                logger.info("Created new user with email: {} and Firebase UID: {}", firebaseEmail, firebaseUid);
+                // Don't automatically create users - they must go through invitation flow
+                Map<String, String> errorResponse = new HashMap<>();
+                errorResponse.put("error", "User account not found. Please complete your invitation first.");
+                errorResponse.put("requires_invitation", "true");
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
             }
             
             // Generate JWT token for session management
@@ -686,7 +673,7 @@ public class AuthController {
             Date tokenExpiry = new Date(System.currentTimeMillis() + sessionConfig.getSessionTimeoutMs()); // Use configured timeout
             sessionManager.createSession(firebaseEmail, jwtToken, tokenExpiry);
             
-            logger.info("Firebase token exchanged successfully for user: {}", firebaseEmail);
+            logger.info("Firebase token exchanged successfully using email-based lookup for user: {}", firebaseEmail);
             
             // Return user data
             Map<String, Object> responseData = new HashMap<>();
@@ -694,11 +681,11 @@ public class AuthController {
             responseData.put("message", "Token exchanged successfully");
             responseData.put("tokenValid", true);
             
-            logger.info("=== EXCHANGE-TOKEN COMPLETED SUCCESSFULLY ===");
+            logger.info("=== EXCHANGE-TOKEN COMPLETED SUCCESSFULLY (Enterprise-Grade Flow) ===");
             return ResponseEntity.ok(responseData);
             
         } catch (Exception e) {
-            logger.error("=== EXCHANGE-TOKEN FAILED ===", e);
+            logger.error("=== EXCHANGE-TOKEN FAILED (Enterprise-Grade Flow) ===", e);
             logger.error("Error exchanging Firebase token: {}", e.getMessage(), e);
             Map<String, String> errorResponse = new HashMap<>();
             errorResponse.put("error", "Error exchanging Firebase token: " + e.getMessage());

@@ -14,6 +14,7 @@ import Marketing from "./pages/Dashboard/Marketing";
 import Analytics from "./pages/Dashboard/Analytics";
 import SignIn from "./pages/AuthPages/SignIn";
 import SignUp from "./pages/AuthPages/SignUp";
+import CompleteInvitation from "./pages/AuthPages/CompleteInvitation";
 import NotFound from "./pages/OtherPage/NotFound";
 import UserProfiles from "./pages/UserProfiles";
 import Carousel from "./pages/UiElements/Carousel";
@@ -145,6 +146,7 @@ export default function App() {
           {/* Public Routes - No Auth Required */}
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<SignUp />} />
+          <Route path="/complete-invitation" element={<CompleteInvitation />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/two-step-verification" element={<TwoStepVerification />} />
           

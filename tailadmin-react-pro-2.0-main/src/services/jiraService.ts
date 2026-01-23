@@ -25,74 +25,8 @@ export const jiraTransitionMap: Record<string, string> = {
 
 // Generic API call function for Jira endpoints with caching and request deduplication
 async function jiraApiCall(endpoint: string, options: RequestInit = {}, useCache = false) {
-  const url = `${API_BASE_URL}${endpoint}`;
-  
-  // Use cache manager if caching is enabled
-  if (useCache) {
-    return cacheManager.fetchWithCache(url, options, JIRA_CACHE_DURATION);
-  }
-
-  const isFormData = options.body instanceof FormData;
-
-  const headers: any = {
-    Accept: "application/json",
-    ...(options.headers || {})
-  };
-
-  // ❌ DO NOT SET CONTENT-TYPE FOR FORMDATA
-  if (!isFormData) {
-    headers["Content-Type"] = "application/json";
-  }
-
-  // Add timeout to prevent hanging requests
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
-
-  try {
-    const response = await fetch(url, {
-      method: options.method || "GET",
-      body: options.body,
-      headers,
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      // Try to parse error response
-      let errorMessage = response.statusText;
-      try {
-        const err = await response.json();
-        errorMessage = err.message || err.errorMessages?.[0] || response.statusText;
-      } catch (parseError) {
-        // If we can't parse JSON, use the status text
-        errorMessage = response.statusText;
-      }
-      
-      // Provide more specific error messages based on status codes
-      if (response.status === 404) {
-        throw new Error(`Issue not found or you don't have permission to access it: ${errorMessage}`);
-      } else if (response.status === 401 || response.status === 403) {
-        throw new Error(`Access denied to Jira API: ${errorMessage}`);
-      } else {
-        throw new Error(`Failed to fetch issue: ${errorMessage}`);
-      }
-    }
-    
-    if (response.status === 204) return {};
-
-    return response.json().catch(() => response.text());
-  } catch (error: any) {
-    clearTimeout(timeoutId);
-    
-    // Handle network errors specifically
-    if (error.name === 'TypeError' && error.message.includes('fetch')) {
-      throw new Error(`Failed to connect to Jira API: ${error.message}`);
-    } else if (error.name === 'AbortError') {
-      throw new Error('Request timeout: Jira API took too long to respond');
-    }
-    throw error;
-  }
+  // Use the main apiCall function to ensure user intent is handled properly
+  return apiCall(endpoint, options, useCache);
 }
 
 async function getProposalById(id: number) {
@@ -271,17 +205,13 @@ export interface CreateVendorPayload {
 }
 
 async function createVendor(payload: CreateVendorPayload): Promise<ProductItem> {
-  const response = await fetch("/api/jira/vendors", {
+  const response = await apiCall("/api/jira/vendors", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
 
-  if (!response.ok) {
-    throw new Error(`Failed to create vendor (status ${response.status})`);
-  }
-
-  return response.json();
+  return response;
 }
 
 
@@ -580,15 +510,29 @@ transitionIssueCustom: async (issueKey: string, transitionId: string) => {
   addAttachmentToIssue: async (issueIdOrKey: string, file: File) => {
     const formData = new FormData();
     formData.append("file", file);
-
-    // Use direct fetch to avoid CORS issues with multipart/form-data
+    
+    // For file uploads with FormData, we need to handle authorization differently
+    // Get the JWT token from localStorage or wherever it's stored
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    
+    // Prepare headers manually to include token
+    const headers: any = {
+      "X-Atlassian-Token": "no-check",   // Jira-required header
+      // Include token if available
+      ...(token ? { "Authorization": `Bearer ${token}` } : {})
+    };
+    
+    // Use fetch directly for FormData to avoid CORS issues with multipart/form-data
+    // but ensure user intent is tracked by consuming it
+    const consumeUserIntent = (await import('../utils/UserIntent')).consumeUserIntent;
+    if (consumeUserIntent()) {
+      headers['X-User-Activity'] = 'true';
+    }
+    
     const response = await fetch(`${API_BASE_URL}/api/jira/issues/${issueIdOrKey}/attachments`, {
       method: "POST",
       body: formData,
-      headers: {
-        "X-Atlassian-Token": "no-check"   // Jira-required header
-        // DO NOT SET CONTENT-TYPE - let browser set it with boundary
-      }
+      headers: headers
     });
 
     if (!response.ok) {

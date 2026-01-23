@@ -18,14 +18,14 @@ export default function ProtectedPermissionRoute({
   redirectTo = "/" 
 }: ProtectedPermissionRouteProps) {
   console.log('ProtectedPermissionRoute: Component mounted');
-  const { currentUser, loading, hasPermission, hasAllPermissions, hasAnyPermission, userRole } = useAuth();
+  const { currentUser, loading, sessionReady, hasPermission, hasAllPermissions, hasAnyPermission, userRole } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     console.log('ProtectedPermissionRoute: useEffect called - loading=', loading, 'currentUser=', currentUser, 'userRole=', userRole);
-    // Only check auth and permissions after we've finished loading AND user role is available
-    if (!loading && userRole !== null) {
-      console.log('ProtectedPermissionRoute: Finished loading and user role available, checking auth and permissions');
+    // Only check auth and permissions after we've finished loading AND user role is available AND session is ready
+    if (!loading && sessionReady && userRole !== null) {
+      console.log('ProtectedPermissionRoute: Finished loading, session ready and user role available, checking auth and permissions');
       // If user is not authenticated, redirect to sign in
       if (!currentUser) {
         console.log('ProtectedPermissionRoute: No user, redirecting to signin');
@@ -63,10 +63,10 @@ export default function ProtectedPermissionRoute({
       console.log('ProtectedPermissionRoute: User authenticated but role not loaded yet, waiting...');
       // Don't redirect in this case, let the role load
     }
-  }, [currentUser, loading, requiredPermissions, requireAllPermissions, redirectTo, navigate, hasPermission, hasAllPermissions, hasAnyPermission, userRole]);
+  }, [currentUser, loading, sessionReady, requiredPermissions, requireAllPermissions, redirectTo, navigate, hasPermission, hasAllPermissions, hasAnyPermission, userRole]);
 
   // Show loading state while checking auth status
-  if (loading) {
+  if (loading || !sessionReady) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-lg">Loading...</div>

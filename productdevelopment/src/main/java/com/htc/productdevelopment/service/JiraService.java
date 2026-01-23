@@ -41,15 +41,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.http.HttpResponse;
-import org.apache.http.client.ClientProtocolException;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.client.methods.HttpPut;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.util.EntityUtils;
+// Apache HTTP client imports removed - using RestTemplate instead
 //import org.json.JSONArray;
 //import org.json.JSONObject;
  
@@ -1433,12 +1425,11 @@ public JsonNode addAttachmentToIssue(String issueIdOrKey, byte[] fileContent, St
             String url = jiraConfig.getBaseUrl() 
                     + "/rest/api/3/issue/" + issueKey + "/transitions";
 
-            HttpClient httpClient = HttpClients.createDefault();
-            HttpPost httpPost = new HttpPost(url);
-
-            httpPost.setHeader("Authorization", "Basic " + encodeCredentials(user, apiToken));
-            httpPost.setHeader("Accept", "application/json");
-            httpPost.setHeader("Content-Type", "application/json");
+            // Using RestTemplate instead of Apache HTTP client
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Authorization", "Basic " + encodeCredentials(user, apiToken));
+            headers.set("Accept", "application/json");
+            headers.set("Content-Type", "application/json");
 
             // 🔥 Using Jackson to build JSON
             ObjectMapper mapper = new ObjectMapper();
@@ -1447,11 +1438,11 @@ public JsonNode addAttachmentToIssue(String issueIdOrKey, byte[] fileContent, St
             transitionObj.put("id", transitionId);
             root.set("transition", transitionObj);
 
-            httpPost.setEntity(new StringEntity(mapper.writeValueAsString(root)));
-
-            HttpResponse response = httpClient.execute(httpPost);
-            int status = response.getStatusLine().getStatusCode();
-            String responseBody = EntityUtils.toString(response.getEntity());
+            HttpEntity<String> request = new HttpEntity<>(mapper.writeValueAsString(root), headers);
+            ResponseEntity<String> response = restTemplate.postForEntity(url, request, String.class);
+            
+            int status = response.getStatusCode().value();
+            String responseBody = response.getBody();
 
             logger.info("➡️ TRANSITION CALL → {}", url);
             logger.info("➡️ PAYLOAD → {}", mapper.writeValueAsString(root));

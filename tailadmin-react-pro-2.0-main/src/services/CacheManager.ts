@@ -1,6 +1,9 @@
 // CacheManager.ts
 // Centralized cache manager for API responses with request deduplication
 
+// Import the main apiCall function to ensure user intent is handled properly
+import { apiCall } from './api';
+
 class CacheManager {
   private cache: Map<string, { data: any; timestamp: number }>;
   private pendingRequests: Map<string, Promise<any>>;
@@ -75,14 +78,57 @@ class CacheManager {
       return this.getCachedData(key);
     }
 
-    // Create new request
-    const requestPromise = fetch(url, options)
+    // Create new request using fetch to maintain original behavior
+    const updatedOptions: RequestInit = {
+      ...options,
+      credentials: 'include', // This ensures JWT cookies are sent
+    };
+
+    const requestPromise = fetch(url, updatedOptions)
       .then(response => {
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         return response.json().catch(() => response.text());
       })
+      .then(data => {
+        // Cache the response
+        this.setCachedData(key, data);
+        return data;
+      })
+      .finally(() => {
+        // Clean up pending request
+        this.removePendingRequest(key);
+      });
+
+    // Store pending request
+    this.setPendingRequest(key, requestPromise);
+
+    return requestPromise;
+  }
+
+  // Fetch API data with caching and user intent handling
+  async fetchApiWithCache(
+    endpoint: string, 
+    options: RequestInit = {}, 
+    cacheDuration: number = this.defaultCacheDuration
+  ): Promise<any> {
+    const key = this.generateKey(endpoint, options);
+
+    // Check if there's a pending request
+    if (this.hasPendingRequest(key)) {
+      console.log(`Deduplicating API request for: ${endpoint}`);
+      return this.getPendingRequest(key);
+    }
+
+    // Check cache
+    if (this.isCached(key, cacheDuration)) {
+      console.log(`Returning cached API response for: ${endpoint}`);
+      return this.getCachedData(key);
+    }
+
+    // Create new request using apiCall to ensure user intent is handled
+    const requestPromise = apiCall(endpoint, options)
       .then(data => {
         // Cache the response
         this.setCachedData(key, data);

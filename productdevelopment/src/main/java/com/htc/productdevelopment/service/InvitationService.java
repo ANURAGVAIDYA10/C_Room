@@ -8,10 +8,7 @@ import com.htc.productdevelopment.repository.InvitationRepository;
 import com.htc.productdevelopment.service.UserService;
 import com.htc.productdevelopment.repository.OrganizationRepository;
 
-import com.google.firebase.auth.ActionCodeSettings;
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseAuthException;
-import com.google.firebase.auth.FirebaseToken;
+
 
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Value;
@@ -90,6 +87,23 @@ public class InvitationService {
     }
 
     // -------------------------------------------------------------
+    // 2️⃣ Send Firebase Invitation Email
+    // -------------------------------------------------------------
+    private void sendFirebaseInvitationEmail(Invitation inv) {
+        try {
+            // The actual Firebase email sending happens on the frontend
+            // We just need to mark the invitation as sent in the database
+            inv.setSent(true);
+            invitationRepository.save(inv);
+            
+            System.out.println("Firebase invitation created for: " + inv.getEmail());
+        } catch (Exception e) {
+            // Log error but don't fail the invitation creation
+            e.printStackTrace();
+        }
+    }
+
+    // -------------------------------------------------------------
     // 2️⃣ Send Invitation Email
     // -------------------------------------------------------------
     private void sendInvitationEmail(Invitation inv) {
@@ -120,37 +134,7 @@ public class InvitationService {
         }
     }
 
-    // -------------------------------------------------------------
-    // 2️⃣ Send Firebase Invitation Email
-    // -------------------------------------------------------------
-    private void sendFirebaseInvitationEmail(Invitation inv) {
-        try {
-            String invitationLink = generateInvitationLink(inv);
-            
-            // Configure email action settings
-            ActionCodeSettings actionCodeSettings = ActionCodeSettings.builder()
-                .setUrl(invitationLink)
-                .setHandleCodeInApp(false)  // Set to true if you want to handle the code in your app
-                .build();
-            
-            // Generate sign-in link using Firebase
-            // Note: The Firebase Admin SDK doesn't directly send emails, it only generates links
-            // In a production environment, you would use this link with an email service
-            String emailSignInLink = FirebaseAuth.getInstance().generateSignInWithEmailLink(
-                inv.getEmail(), 
-                actionCodeSettings
-            );
-            
-            // Note: In a production environment, you would integrate with an email service
-            // to send the actual email with the link. For now, we'll just mark it as sent.
-            // Mark as sent in database
-            inv.setSent(true);
-            invitationRepository.save(inv);
-        } catch (FirebaseAuthException e) {
-            // Log error but don't fail the invitation creation
-            e.printStackTrace();
-        }
-    }
+    
 
     // -------------------------------------------------------------
     // 3️⃣ Generate secure invitation link
@@ -168,12 +152,49 @@ public class InvitationService {
     // 4️⃣ Verify token BEFORE showing Google/Microsoft login
     // -------------------------------------------------------------
     public Invitation verifyInvitation(String token, String email) throws Exception {
+        try {
+            if (token == null || token.isEmpty()) {
+                throw new Exception("Invitation token is required.");
+            }
+            
+            if (email == null || email.isEmpty()) {
+                throw new Exception("Email is required.");
+            }
 
-        Optional<Invitation> opt = invitationRepository.findByTokenAndEmail(token, email.toLowerCase().trim());
+            Optional<Invitation> opt = invitationRepository.findByTokenAndEmail(token, email.toLowerCase().trim());
 
-        if (opt.isEmpty()) {
-            throw new Exception("Invalid or mismatched invitation link.");
+            if (opt.isEmpty()) {
+                throw new Exception("Invalid or mismatched invitation link.");
+            }
+
+            Invitation inv = opt.get();
+            
+            // Add null checks
+            if (inv.getStatus() == null) {
+                throw new Exception("Invitation status is invalid.");
+            }
+
+            // Allow verification of ACCEPTED invitations for display purposes
+            // But check expiration regardless of status
+            if (inv.getExpiresAt() == null) {
+                throw new Exception("Invitation expiration date is missing.");
+            }
+
+            if (LocalDateTime.now().isAfter(inv.getExpiresAt())) {
+                throw new Exception("This invitation link has expired.");
+            }
+
+            // Only reject if it's been accepted AND we're trying to complete it (not just verify for display)
+            // This check should be handled in the completeInvitation method instead
+            
+            return inv;
+        } catch (Exception e) {
+            // Log the actual error for debugging
+            System.err.println("Error in verifyInvitation: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
         }
+<<<<<<< HEAD
 
         Invitation inv = opt.get();
 
@@ -186,6 +207,8 @@ public class InvitationService {
         }
 
         return inv;
+=======
+>>>>>>> tejas/firebasenew
     }
 
     // -------------------------------------------------------------
@@ -257,7 +280,7 @@ public class InvitationService {
     // -------------------------------------------------------------
     // 5️⃣ Complete Invitation (after Google/Microsoft login & setting password)
     // -------------------------------------------------------------
-    public User completeInvitation(String token, String email, String fullName, String password) throws Exception {
+    public User completeInvitation(String token, String email, String fullName, String password, String firebaseUid) throws Exception {
         // For OAuth flow, we might not have a token, so we'll verify by email
         Invitation inv;
         if (token != null && !token.isEmpty() && !token.startsWith("oauth_")) {
@@ -274,6 +297,7 @@ public class InvitationService {
             throw new Exception("User already exists in database with this email. Please sign in instead of creating a new account.");
         }
         
+<<<<<<< HEAD
         // 2. Check if user already exists in Firebase
         User firebaseUser;
         boolean userAlreadyExists = false;
@@ -339,8 +363,11 @@ public class InvitationService {
         }
 
         // 2. Save in DB
+=======
+        // 2. Create DB user using invitation data WITH Firebase UID
+>>>>>>> tejas/firebasenew
         User created = userService.saveUserToDB(
-                firebaseUser.getUid(),
+                firebaseUid, // Now we have the Firebase UID
                 email,
                 fullName,
                 parseRole(inv.getRole())
@@ -363,13 +390,17 @@ public class InvitationService {
         // Save updates
         userService.updateUserById(created.getId(), created);
 
+<<<<<<< HEAD
         // 5. Mark invitation accepted
+=======
+        // 5. Mark invitation as accepted
+>>>>>>> tejas/firebasenew
         inv.setStatus(InvitationStatus.ACCEPTED);
         invitationRepository.save(inv);
 
         return created;
     }
-
+    
     private User.Role parseRole(String role) {
         try { 
             return User.Role.valueOf(role.toUpperCase()); 
@@ -404,6 +435,13 @@ public class InvitationService {
         }
         
         return inv;
+    }
+    
+    // -------------------------------------------------------------
+    // Update invitation
+    // -------------------------------------------------------------
+    public Invitation updateInvitation(Invitation invitation) {
+        return invitationRepository.save(invitation);
     }
     
     // -------------------------------------------------------------

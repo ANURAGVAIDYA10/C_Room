@@ -4,4 +4,8 @@ public enum InvitationStatus {
     PENDING,
     ACCEPTED,
     EXPIRED
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> tejas/firebasenew

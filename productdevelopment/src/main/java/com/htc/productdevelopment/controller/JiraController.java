@@ -35,8 +35,8 @@ import org.springframework.http.MediaType;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import jakarta.servlet.http.HttpServletRequest;
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseToken;
+import com.htc.productdevelopment.utils.JwtUtil;
+import com.htc.productdevelopment.utils.CookieUtil;
 
 
 
@@ -76,6 +76,12 @@ public class JiraController {
     @Autowired
     private final NotificationService notificationService;
     private final UserService userService;
+    
+    @Autowired
+    private JwtUtil jwtUtil;
+    
+    @Autowired
+    private CookieUtil cookieUtil;
 
     @Autowired
     private ContractDetailsRepository contractDetailsRepository;
@@ -109,37 +115,26 @@ public class JiraController {
     
     private User getCurrentUserFromToken() {
         try {
-            System.out.println("Getting current user from token");
             // Get the current HTTP request
             ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.currentRequestAttributes();
             HttpServletRequest request = attributes.getRequest();
-            
-            // Get the Authorization header
-            String authHeader = request.getHeader("Authorization");
-            System.out.println("Auth header: " + authHeader);
-            
-            if (authHeader != null && authHeader.startsWith("Bearer ")) {
-                String idToken = authHeader.substring(7); // Remove "Bearer " prefix
-                System.out.println("ID token extracted");
                 
-                // Verify the Firebase ID token
-                FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(idToken);
-                String uid = decodedToken.getUid();
-                System.out.println("Decoded UID: " + uid);
+            // Get JWT token from cookie
+            String jwtToken = cookieUtil.getJwtFromCookies(request);
                 
-                // Look up user in database
-                Optional<User> userOpt = userService.getUserByUid(uid);
-                System.out.println("User found in database: " + userOpt.isPresent());
-                return userOpt.orElse(null);
-            } else {
-                System.out.println("No valid Authorization header found");
+            if (jwtToken != null && !jwtToken.isEmpty()) {
+                // Validate JWT token and get email
+                String email = jwtUtil.getUsernameFromToken(jwtToken);
+                if (email != null && jwtUtil.validateToken(jwtToken, email)) {
+                    // Look up user in database
+                    return userService.getUserByEmail(email).orElse(null);
+                }
             }
         } catch (Exception e) {
-            // Log the error but don't throw it
-            System.err.println("Error getting current user from token: " + e.getMessage());
-            e.printStackTrace();
+            // Log the error but don"t throw it
+            logger.error("Error getting current user from token: {}", e.getMessage(), e);
         }
-        
+            
         return null;
     }
 

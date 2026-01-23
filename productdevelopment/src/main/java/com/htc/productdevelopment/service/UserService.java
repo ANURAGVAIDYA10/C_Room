@@ -14,8 +14,9 @@ import org.slf4j.LoggerFactory;
 import java.util.Optional;
 import java.util.List;
 
-import com.google.firebase.auth.UserRecord;
-import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseAuthException;
+
+
 
 
 @Service
@@ -26,13 +27,16 @@ public class UserService {
     private final UserRepository userRepository;
     private final DepartmentRepository departmentRepository;
     private final OrganizationService organizationService;
+    private final FirebaseService firebaseService;
 
     public UserService(UserRepository userRepository,
                        DepartmentRepository departmentRepository,
-                       OrganizationService organizationService) {
+                       OrganizationService organizationService,
+                       FirebaseService firebaseService) {
         this.userRepository = userRepository;
         this.departmentRepository = departmentRepository;
         this.organizationService = organizationService;
+        this.firebaseService = firebaseService;
     }
 
     // -------------------------------------------------------
@@ -183,6 +187,14 @@ public class UserService {
         // Delete associated invitations
         deleteInvitationsByEmail(user.getEmail());
 
+        // Delete user from Firebase
+        try {
+            firebaseService.deleteUserFromFirebase(uid);
+        } catch (FirebaseAuthException e) {
+            logger.error("Error deleting user from Firebase: {}", e.getMessage(), e);
+            // Continue with database deletion even if Firebase deletion fails
+        }
+
         userRepository.delete(user);
     }
 
@@ -192,6 +204,16 @@ public class UserService {
 
         // Delete associated invitations
         deleteInvitationsByEmail(user.getEmail());
+
+        // Delete user from Firebase if UID exists
+        if (user.getUid() != null && !user.getUid().isEmpty()) {
+            try {
+                firebaseService.deleteUserFromFirebase(user.getUid());
+            } catch (FirebaseAuthException e) {
+                logger.error("Error deleting user from Firebase: {}", e.getMessage(), e);
+                // Continue with database deletion even if Firebase deletion fails
+            }
+        }
 
         userRepository.delete(user);
     }
@@ -205,24 +227,7 @@ public class UserService {
  // -------------------------------------------------------------
     // 1️⃣ Create user in Firebase
     // -------------------------------------------------------------
-    public User createUserInFirebase(String email, String password, String fullName) throws Exception {
 
-        UserRecord.CreateRequest req = new UserRecord.CreateRequest()
-                .setEmail(email)
-                .setPassword(password)
-                .setDisplayName(fullName)
-                .setEmailVerified(true);
-
-        UserRecord rec = FirebaseAuth.getInstance().createUser(req);
-
-        // Returning a temporary User object containing Firebase UID
-        User u = new User();
-        u.setUid(rec.getUid());
-        u.setEmail(email);
-        u.setName(fullName);
-
-        return u;
-    }
 
 
     // -------------------------------------------------------------
@@ -336,15 +341,7 @@ public class UserService {
     // -------------------------------------------------------------
     // 5️⃣ Create user with role (for Admin User Management)
     // -------------------------------------------------------------
-    public User createUserWithRole(String email, String password, String name, User.Role role) throws Exception {
-        // Create user in Firebase
-        User firebaseUser = createUserInFirebase(email, password, name);
-        
-        // Save user to database with specified role
-        User dbUser = saveUserToDB(firebaseUser.getUid(), email, name, role);
-        
-        return dbUser;
-    }
+
     
     // -------------------------------------------------------
     // Update by ID (Used in Admin User Management)

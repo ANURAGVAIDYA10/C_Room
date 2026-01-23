@@ -1,7 +1,10 @@
+// src/App.tsx
 import { BrowserRouter as Router, Routes, Route, useNavigate, Navigate } from "react-router";
 import { AuthProvider } from "./context/AuthContext";
 import { NotificationProvider } from "./context/NotificationContext";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
+import { PublicRoute } from "./components/auth/PublicRoute";
+import { HomeRedirect } from "./components/auth/HomeRedirect";
 import ProtectedPermissionRoute from "./components/auth/ProtectedPermissionRoute";
 import { Permission } from "./config/permissions";
 import CreateIssueModal from "./main pages/Request Creation/CreateIssueModal";
@@ -13,6 +16,7 @@ import Marketing from "./pages/Dashboard/Marketing";
 import Analytics from "./pages/Dashboard/Analytics";
 import SignIn from "./pages/AuthPages/SignIn";
 import SignUp from "./pages/AuthPages/SignUp";
+import CompleteInvitation from "./pages/AuthPages/CompleteInvitation";
 import NotFound from "./pages/OtherPage/NotFound";
 import UserProfiles from "./pages/UserProfiles";
 import Carousel from "./pages/UiElements/Carousel";
@@ -98,6 +102,8 @@ import RenewalVendor from "./main pages/Vendor Management/VendorRenewal/Renewal_
 import ProcurementRenewal from "./main pages/Procurement Request/procurement-renewal";
 
 export default function App() {
+  console.log('App: Component rendered');
+  
   const [isCreateIssueModalOpen, setIsCreateIssueModalOpen] = useState(false);
   const initialExistingContractIdRef = useRef<string | null>(null);
   
@@ -136,16 +142,58 @@ export default function App() {
   
   return (
     <>
+      
       <AuthProvider>
       <NotificationProvider>
       <Router>
         <ScrollToTop />
         <Routes>
+<<<<<<< HEAD
           {/* Root route - always redirect to signin */}
           <Route path="/" element={<ProtectedRoute><Navigate to="/ecommerce/dashboard" replace /></ProtectedRoute>} />
+=======
+          {/* Public Routes - No Auth Required */}
+          <Route path="/signin" element={
+            <PublicRoute>
+              <SignIn />
+            </PublicRoute>
+          } />
+          <Route path="/signup" element={
+            <PublicRoute>
+              <SignUp />
+            </PublicRoute>
+          } />
+          <Route path="/complete-invitation" element={
+            <PublicRoute>
+              <CompleteInvitation />
+            </PublicRoute>
+          } />
+          <Route path="/reset-password" element={
+            <PublicRoute>
+              <ResetPassword />
+            </PublicRoute>
+          } />
+          <Route path="/two-step-verification" element={
+            <PublicRoute>
+              <TwoStepVerification />
+            </PublicRoute>
+          } />
+>>>>>>> tejas/firebasenew
           
-          {/* Dashboard Layout */}
+          {/* Root route - redirect to dashboard if authenticated, otherwise to signin */}
+          <Route path="/" element={<HomeRedirect />} />
+          
+          {/* Alternative Layout - for special pages (public) */}
+          <Route element={<AlternativeLayout />}>
+            <Route path="/text-generator" element={<TextGeneratorPage />} />
+            <Route path="/image-generator" element={<ImageGeneratorPage />} />
+            <Route path="/code-generator" element={<CodeGeneratorPage />} />
+            <Route path="/video-generator" element={<VideoGeneratorPage />} />
+          </Route>
+          
+          {/* Protected Routes - Wrapped in AppLayout */}
           <Route element={<AppLayout />}>
+            {/* Dashboard Routes */}
             <Route path="/ecommerce/dashboard" element={<ProtectedRoute><Ecommerce /></ProtectedRoute>} />
             <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
             <Route path="/marketing" element={<ProtectedRoute><Marketing /></ProtectedRoute>} />
@@ -241,31 +289,13 @@ export default function App() {
             <Route path="/pie-chart" element={<ProtectedRoute><PieChart /></ProtectedRoute>} />
           </Route>
 
-          {/* Alternative Layout - for special pages */}
-          <Route element={<AlternativeLayout />}>
-            {/* AI Generator */}
-            <Route path="/text-generator" element={<TextGeneratorPage />} />
-            <Route path="/image-generator" element={<ImageGeneratorPage />} />
-            <Route path="/code-generator" element={<CodeGeneratorPage />} />
-            <Route path="/video-generator" element={<VideoGeneratorPage />} />
-          </Route>
-
-          {/* Auth Layout */}
-          <Route path="/signin" element={<SignIn />} />
-          <Route path="/signup" element={<SignUp />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route
-            path="/two-step-verification"
-            element={<TwoStepVerification />}
-          />
-
-          {/* Fallback Route */}
-          <Route path="*" element={<NotFound />} />
+          {/* Fallback Routes */}
           <Route path="/maintenance" element={<Maintenance />} />
           <Route path="/success" element={<Success />} />
           <Route path="/five-zero-zero" element={<FiveZeroZero />} />
           <Route path="/five-zero-three" element={<FiveZeroThree />} />
           <Route path="/coming-soon" element={<ComingSoon />} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
         <CreateIssueModal
           isOpen={isCreateIssueModalOpen}

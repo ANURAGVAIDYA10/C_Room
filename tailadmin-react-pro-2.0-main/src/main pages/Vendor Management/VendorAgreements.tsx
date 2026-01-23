@@ -444,7 +444,10 @@ const VendorAgreements: React.FC = () => {
       try {
         setLoading(true);
         console.log("Fetching contract details from backend...");
-        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/jira/contracts/completed`);
+        // Add credentials: 'include' to ensure JWT cookie is sent
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/jira/contracts/completed`, {
+          credentials: 'include'
+        });
         console.log("Response status:", response.status);
         console.log("Response headers:", response.headers);
         

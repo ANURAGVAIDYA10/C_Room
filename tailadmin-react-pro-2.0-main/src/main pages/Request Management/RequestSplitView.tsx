@@ -5,7 +5,7 @@ import { jiraService, IssueTransition } from "../../services/jiraService";
 import { CustomFilterDropdown } from "../../components/filters/CustomFilterDropdown";
 import { usePermissions } from "../../hooks/usePermissions";
 import EditIssueModal from "../../main pages/Request Management/EditIssueModal";
-import { useNotifications } from "../../context/NotificationContext";
+import { useNotification } from "../../context/NotificationContext";
 import { useAuth } from "../../context/AuthContext";
 import { commentService } from "../../services/commentService";
 import AttachmentPreview from "../../components/attachment/AttachmentPreview";
@@ -359,7 +359,7 @@ const RequestSplitView: React.FC = () => {
   const [initialLoading, setInitialLoading] = useState(true); // Loading for initial data fetch
   const [issueLoading, setIssueLoading] = useState(false); // Loading for specific issue details
   const [error, setError] = useState<string | null>(null);
-  const notificationContext = useNotifications();
+  const notificationContext = useNotification();
   // dropdowns
   const [assignees, setAssignees] = useState<{ id: string; name: string }[]>(
     []

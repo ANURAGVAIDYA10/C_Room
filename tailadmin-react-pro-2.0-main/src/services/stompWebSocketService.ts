@@ -1,5 +1,16 @@
 import { Client } from '@stomp/stompjs';
-import { AppNotification } from "../context/NotificationContext";
+
+// Define the notification type
+interface AppNotification {
+  id: number;
+  title: string;
+  message: string;
+  issueKey: string;
+  createdAt: string;
+  fromStatus?: string;
+  toStatus?: string;
+  isRead: boolean;
+}
 
 class StompWebSocketService {
   private stompClient: Client;
@@ -10,7 +21,10 @@ class StompWebSocketService {
     this.stompClient = new Client({
       // Determine WebSocket URL based on current host
       brokerURL: this.getWebSocketUrl(),
-      connectHeaders: {},
+      connectHeaders: {
+        // Use credentials (JWT cookie) for authentication
+        'Cookie': document.cookie // This will include our JWT cookie
+      },
       debug: (str) => {
         console.log('STOMP: ' + str);
       },

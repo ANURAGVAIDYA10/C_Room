@@ -1,0 +1,164 @@
+// Source code is decompiled from a .class file using FernFlower decompiler (from Intellij IDEA).
+package com.htc.productdevelopment.controller;
+
+import com.htc.productdevelopment.model.Invitation;
+import com.htc.productdevelopment.model.User;
+import com.htc.productdevelopment.service.InvitationService;
+import com.htc.productdevelopment.service.UserService;
+import java.util.HashMap;
+import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping({"/api/invitations"})
+@CrossOrigin(
+   origins = {"http://localhost:5173"}
+)
+public class InvitationController {
+   private static final Logger logger = LoggerFactory.getLogger(InvitationController.class);
+   private final InvitationService invitationService;
+   private final UserService userService;
+
+   @Autowired
+   public InvitationController(InvitationService invitationService, UserService userService) {
+      this.invitationService = invitationService;
+      this.userService = userService;
+   }
+
+   @PostMapping({"/create"})
+   public ResponseEntity<?> createInvitation(@RequestBody Map<String, Object> body) {
+      try {
+         String email = (String)body.get("email");
+         String role = (String)body.get("role");
+         Long departmentId = body.get("departmentId") != null ? Long.parseLong(body.get("departmentId").toString()) : null;
+         Long organizationId = body.get("organizationId") != null ? Long.parseLong(body.get("organizationId").toString()) : null;
+         Long invitedBy = null;
+         Invitation inv = this.invitationService.createInvitation(email, role, departmentId, organizationId, (Long)invitedBy);
+         String invitationLink = this.invitationService.generateInvitationLink(inv);
+         return ResponseEntity.ok(Map.of("message", "Invitation created successfully", "invitationLink", invitationLink, "token", inv.getToken()));
+      } catch (Exception var9) {
+         return ResponseEntity.badRequest().body(Map.of("error", var9.getMessage()));
+      }
+   }
+
+   @PostMapping({"/create-firebase"})
+   public ResponseEntity<?> createFirebaseInvitation(@RequestBody Map<String, Object> body) {
+      try {
+         String email = (String)body.get("email");
+         String role = (String)body.get("role");
+         Long departmentId = body.get("departmentId") != null ? Long.parseLong(body.get("departmentId").toString()) : null;
+         Long organizationId = body.get("organizationId") != null ? Long.parseLong(body.get("organizationId").toString()) : null;
+         Long invitedBy = null;
+         Invitation inv = this.invitationService.createInvitation(email, role, departmentId, organizationId, (Long)invitedBy, true);
+         String invitationLink = this.invitationService.generateInvitationLink(inv);
+         return ResponseEntity.ok(Map.of("message", "Firebase invitation created successfully", "invitationLink", invitationLink, "token", inv.getToken()));
+      } catch (Exception var9) {
+         return ResponseEntity.badRequest().body(Map.of("error", var9.getMessage()));
+      }
+   }
+
+   @GetMapping({"/verify"})
+   public ResponseEntity<?> verifyToken(@RequestParam String token, @RequestParam String email) {
+      try {
+         logger.info("Verifying invitation token: {} for email: {}", token, email);
+         if (token != null && !token.trim().isEmpty()) {
+            if (email != null && !email.trim().isEmpty()) {
+               Invitation inv = this.invitationService.verifyInvitation(token, email);
+               logger.info("Invitation verified successfully. Role: {}, Dept: {}, Org: {}", new Object[]{inv.getRole(), inv.getDepartmentId(), inv.getOrganizationId()});
+               Map<String, Object> response = new HashMap();
+               response.put("valid", true);
+               response.put("email", inv.getEmail() != null ? inv.getEmail() : "");
+               response.put("role", inv.getRole() != null ? inv.getRole() : "REQUESTER");
+               response.put("status", inv.getStatus() != null ? inv.getStatus().name() : "PENDING");
+               if (inv.getDepartmentId() != null) {
+                  response.put("departmentId", inv.getDepartmentId());
+               } else {
+                  response.put("departmentId", (Object)null);
+               }
+
+               if (inv.getOrganizationId() != null) {
+                  response.put("organizationId", inv.getOrganizationId());
+               } else {
+                  response.put("organizationId", (Object)null);
+               }
+
+               return ResponseEntity.ok(response);
+            } else {
+               logger.warn("Invalid email parameter");
+               return ResponseEntity.badRequest().body(Map.of("valid", false, "error", "Email is required"));
+            }
+         } else {
+            logger.warn("Invalid token parameter");
+            return ResponseEntity.badRequest().body(Map.of("valid", false, "error", "Invitation token is required"));
+         }
+      } catch (Exception var5) {
+         logger.error("Error verifying invitation token: {} for email: {}", new Object[]{token, email, var5});
+         return ResponseEntity.badRequest().body(Map.of("valid", false, "error", var5.getMessage() != null ? var5.getMessage() : "An unexpected error occurred"));
+      }
+   }
+
+   @PostMapping({"/complete"})
+   public ResponseEntity<?> completeInvitation(@RequestBody Map<String, Object> body) {
+      String email = null;
+
+      try {
+         logger.info("=== INVITATION COMPLETION ENDPOINT CALLED ===");
+         String token = (String)body.get("token");
+         email = (String)body.get("email");
+         String fullName = (String)body.get("fullName");
+         String password = (String)body.get("password");
+         String firebaseUid = (String)body.get("firebaseUid");
+         logger.info("Completing invitation for email: {} with Firebase UID: {}", email, firebaseUid);
+         User created = this.invitationService.completeInvitation(token, email, fullName, password, firebaseUid);
+         logger.info("Invitation completed successfully for user: {} with ID: {}", created.getEmail(), created.getId());
+         return ResponseEntity.ok(Map.of("message", "User account created successfully", "uid", created.getUid(), "email", created.getEmail()));
+      } catch (Exception var8) {
+         logger.error("Error completing invitation for email: " + email, var8);
+         return ResponseEntity.badRequest().body(Map.of("error", var8.getMessage()));
+      }
+   }
+
+   @PostMapping({"/mark-sent"})
+   public ResponseEntity<?> markAsSent(@RequestBody Map<String, String> body) {
+      try {
+         String email = (String)body.get("email");
+         String token = (String)body.get("token");
+         if (email != null && token != null) {
+            Invitation invitation = (Invitation)this.invitationService.getInvitationByToken(token).orElseThrow(() -> {
+               return new Exception("Invitation not found");
+            });
+            if (!invitation.getEmail().equalsIgnoreCase(email)) {
+               return ResponseEntity.badRequest().body(Map.of("error", "Email does not match invitation"));
+            } else {
+               invitation.setSent(true);
+               this.invitationService.updateInvitation(invitation);
+               return ResponseEntity.ok(Map.of("message", "Invitation marked as sent successfully"));
+            }
+         } else {
+            return ResponseEntity.badRequest().body(Map.of("error", "Email and token are required"));
+         }
+      } catch (Exception var5) {
+         return ResponseEntity.badRequest().body(Map.of("error", var5.getMessage()));
+      }
+   }
+
+   @GetMapping({"/verify-email"})
+   public ResponseEntity<?> verifyByEmail(@RequestParam String email) {
+      try {
+         Invitation inv = this.invitationService.verifyInvitationByEmail(email);
+         return ResponseEntity.ok(Map.of("valid", true, "email", inv.getEmail(), "role", inv.getRole(), "departmentId", inv.getDepartmentId(), "organizationId", inv.getOrganizationId()));
+      } catch (Exception var3) {
+         return ResponseEntity.badRequest().body(Map.of("valid", false, "error", var3.getMessage()));
+      }
+   }
+}

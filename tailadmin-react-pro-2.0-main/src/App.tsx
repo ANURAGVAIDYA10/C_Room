@@ -148,10 +148,6 @@ export default function App() {
       <Router>
         <ScrollToTop />
         <Routes>
-<<<<<<< HEAD
-          {/* Root route - always redirect to signin */}
-          <Route path="/" element={<ProtectedRoute><Navigate to="/ecommerce/dashboard" replace /></ProtectedRoute>} />
-=======
           {/* Public Routes - No Auth Required */}
           <Route path="/signin" element={
             <PublicRoute>
@@ -178,7 +174,6 @@ export default function App() {
               <TwoStepVerification />
             </PublicRoute>
           } />
->>>>>>> tejas/firebasenew
           
           {/* Root route - redirect to dashboard if authenticated, otherwise to signin */}
           <Route path="/" element={<HomeRedirect />} />

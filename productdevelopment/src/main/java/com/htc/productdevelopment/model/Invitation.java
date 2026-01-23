@@ -29,7 +29,7 @@ public class Invitation {
     private Long organizationId;
     
     @Column(name = "invited_by")
-    private String invitedBy;
+    private Long invitedBy;
 
     @Column(nullable = false, unique = true)
     private String token;
@@ -39,9 +39,6 @@ public class Invitation {
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
-
-    @Column(nullable = false)
-    private boolean used = false;
 
     @Column(nullable = false)
     private boolean sent = false;
@@ -72,19 +69,11 @@ public class Invitation {
     private Boolean userCreated = false;
     
     // Explicit getters for boolean fields
-    public boolean isUsed() {
-        return used;
-    }
-    
     public boolean isSent() {
         return sent;
     }
     
     // Explicit setters for boolean fields
-    public void setUsed(boolean used) {
-        this.used = used;
-    }
-    
     public void setSent(boolean sent) {
         this.sent = sent;
     }

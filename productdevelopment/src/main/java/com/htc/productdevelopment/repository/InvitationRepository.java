@@ -12,7 +12,7 @@ public interface InvitationRepository extends JpaRepository<Invitation, Long> {
     
     Optional<Invitation> findByToken(String token);
     
-    List<Invitation> findByEmailAndUsedFalseOrderByCreatedAtDesc(String email);
+    List<Invitation> findByEmailAndStatusOrderByCreatedAtDesc(String email, com.htc.productdevelopment.model.InvitationStatus status);
 
     void deleteByToken(String token);
 }

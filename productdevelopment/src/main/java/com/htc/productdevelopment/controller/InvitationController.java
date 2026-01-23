@@ -48,7 +48,7 @@ public class InvitationController {
             
             // For now, we'll use a placeholder for invitedBy
             // In a real implementation, you would get this from the authenticated user
-            String invitedBy = "system"; // Placeholder - should be replaced with actual user ID
+            Long invitedBy = null; // Placeholder - should be replaced with actual user ID
 
             Invitation inv = invitationService.createInvitation(
                     email,
@@ -89,7 +89,7 @@ public class InvitationController {
             
             // For now, we'll use a placeholder for invitedBy
             // In a real implementation, you would get this from the authenticated user
-            String invitedBy = "system"; // Placeholder - should be replaced with actual user ID
+            Long invitedBy = null; // Placeholder - should be replaced with actual user ID
 
             // Create invitation with Firebase email sending
             Invitation inv = invitationService.createInvitation(

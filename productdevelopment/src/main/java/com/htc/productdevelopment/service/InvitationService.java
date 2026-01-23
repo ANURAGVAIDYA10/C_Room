@@ -1,6 +1,7 @@
 package com.htc.productdevelopment.service;
 
 import com.htc.productdevelopment.model.Invitation;
+import com.htc.productdevelopment.model.InvitationStatus;
 import com.htc.productdevelopment.model.User;
 import com.htc.productdevelopment.model.Organization;
 import com.htc.productdevelopment.repository.InvitationRepository;
@@ -55,14 +56,14 @@ public class InvitationService {
     // -------------------------------------------------------------
     // 1️⃣ Create Invitation
     // -------------------------------------------------------------
-    public Invitation createInvitation(String email, String role, Long deptId, Long orgId, String invitedBy) {
+    public Invitation createInvitation(String email, String role, Long deptId, Long orgId, Long invitedBy) {
         return createInvitation(email, role, deptId, orgId, invitedBy, false);
     }
     
     // -------------------------------------------------------------
     // 1️⃣ Create Invitation with Firebase option
     // -------------------------------------------------------------
-    public Invitation createInvitation(String email, String role, Long deptId, Long orgId, String invitedBy, boolean useFirebase) {
+    public Invitation createInvitation(String email, String role, Long deptId, Long orgId, Long invitedBy, boolean useFirebase) {
 
         Invitation inv = new Invitation();
         inv.setEmail(email.toLowerCase().trim());
@@ -73,7 +74,7 @@ public class InvitationService {
         inv.setToken(UUID.randomUUID().toString());
         inv.setCreatedAt(LocalDateTime.now());
         inv.setExpiresAt(LocalDateTime.now().plusHours(48)); // 48 hours expiration
-        inv.setUsed(false);
+        inv.setStatus(InvitationStatus.PENDING);
         inv.setSent(false);
 
         Invitation savedInvitation = invitationRepository.save(inv);
@@ -176,7 +177,7 @@ public class InvitationService {
 
         Invitation inv = opt.get();
 
-        if (inv.isUsed()) {
+        if (inv.getStatus() == InvitationStatus.ACCEPTED) {
             throw new Exception("This link has already been used.");
         }
 
@@ -201,7 +202,7 @@ public class InvitationService {
 
         // 2. Validate invitation
         // Check if invitation is already used
-        if (inv.isUsed()) {
+        if (inv.getStatus() == InvitationStatus.ACCEPTED) {
             throw new Exception("This invitation has already been used.");
         }
 
@@ -246,8 +247,8 @@ public class InvitationService {
         // 7. Save updates
         userService.updateUserById(created.getId(), created);
 
-        // 8. Mark invitation as used
-        inv.setUsed(true);
+        // 8. Mark invitation as accepted
+        inv.setStatus(InvitationStatus.ACCEPTED);
         invitationRepository.save(inv);
 
         return created;
@@ -325,8 +326,8 @@ public class InvitationService {
             // Save updated user
             u = userService.updateUserById(u.getId(), u);
 
-            // Mark invitation used
-            inv.setUsed(true);
+            // Mark invitation accepted
+            inv.setStatus(InvitationStatus.ACCEPTED);
             invitationRepository.save(inv);
 
             return u;
@@ -362,8 +363,8 @@ public class InvitationService {
         // Save updates
         userService.updateUserById(created.getId(), created);
 
-        // 5. Mark invitation used
-        inv.setUsed(true);
+        // 5. Mark invitation accepted
+        inv.setStatus(InvitationStatus.ACCEPTED);
         invitationRepository.save(inv);
 
         return created;
@@ -389,7 +390,7 @@ public class InvitationService {
     // Verify invitation by email only (for OAuth flow)
     // -------------------------------------------------------------
     public Invitation verifyInvitationByEmail(String email) throws Exception {
-        List<Invitation> invitations = invitationRepository.findByEmailAndUsedFalseOrderByCreatedAtDesc(email.toLowerCase().trim());
+        List<Invitation> invitations = invitationRepository.findByEmailAndStatusOrderByCreatedAtDesc(email.toLowerCase().trim(), InvitationStatus.PENDING);
         
         if (invitations.isEmpty()) {
             throw new Exception("No pending invitation found for this email.");
@@ -409,7 +410,7 @@ public class InvitationService {
     // Delete pending invitations by email
     // -------------------------------------------------------------
     public void deletePendingInvitationsByEmail(String email) {
-        List<Invitation> pendingInvitations = invitationRepository.findByEmailAndUsedFalseOrderByCreatedAtDesc(email.toLowerCase().trim());
+        List<Invitation> pendingInvitations = invitationRepository.findByEmailAndStatusOrderByCreatedAtDesc(email.toLowerCase().trim(), InvitationStatus.PENDING);
         if (!pendingInvitations.isEmpty()) {
             invitationRepository.deleteAll(pendingInvitations);
         }

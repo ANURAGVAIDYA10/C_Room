@@ -5,10 +5,14 @@ import MonthlyTarget from "../../components/ecommerce/MonthlyTarget";
 import RecentOrders from "../../components/ecommerce/RecentOrders";
 import DemographicCard from "../../components/ecommerce/DemographicCard";
 import PageMeta from "../../components/common/PageMeta";
+import AnimatedDashboard from "../../components/common/AnimatedDashboard";
+import { useAuth } from "../../context/AuthContext";
 
 export default function Ecommerce() {
+  const { currentUser } = useAuth();
+
   return (
-    <>
+    <AnimatedDashboard isAuthenticated={!!currentUser}>
       <PageMeta
         title="React.js Ecommerce Dashboard | TailAdmin - React.js Admin Dashboard Template"
         description="This is React.js Ecommerce Dashboard page for TailAdmin - React.js Tailwind CSS Admin Dashboard Template"
@@ -36,6 +40,6 @@ export default function Ecommerce() {
           <RecentOrders />
         </div>
       </div>
-    </>
+    </AnimatedDashboard>
   );
 }

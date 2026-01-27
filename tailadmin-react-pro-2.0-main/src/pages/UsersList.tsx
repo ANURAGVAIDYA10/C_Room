@@ -6,6 +6,7 @@ import PageMeta from "../components/common/PageMeta";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import { Dropdown } from "../components/ui/dropdown/Dropdown";
 import { DropdownItem } from "../components/ui/dropdown/DropdownItem";
+import Toast from "../components/ui/toast/Toast";
 
 interface Department {
   id: number;
@@ -56,6 +57,12 @@ export default function UsersList() {
   const [selectedRole, setSelectedRole] = useState<string>("All");
   const [selectedDepartment, setSelectedDepartment] = useState<string>("All");
   const [selectedOrganization, setSelectedOrganization] = useState<string>("All");
+  const [loadingStates, setLoadingStates] = useState<{[key: string]: boolean}>({});
+  const [toast, setToast] = useState<{show: boolean; message: string; type: 'success' | 'error' | 'info' | 'warning'}>({
+    show: false,
+    message: '',
+    type: 'info'
+  });
   const navigate = useNavigate();
   const { isSuperAdmin, isAdmin, userDepartmentId, userOrganizationId, userOrganizationName } = useAuth();
   
@@ -226,9 +233,18 @@ export default function UsersList() {
       if (!user.uid) throw new Error("Cannot disable user: missing UID");
       await userApi.disableUser(user.uid);
       setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, active: false } : u)));
+      setToast({
+        show: true,
+        message: "User disabled successfully",
+        type: 'success'
+      });
       closeDropdown();
     } catch (err) {
-      setError("Failed to disable user: " + ((err as Error).message || String(err)));
+      setToast({
+        show: true,
+        message: "Failed to disable user: " + ((err as Error).message || String(err)),
+        type: 'error'
+      });
     }
   };
 
@@ -239,18 +255,36 @@ export default function UsersList() {
       if (!user.uid) throw new Error("Cannot activate user: missing UID");
       await userApi.enableUser(user.uid);
       setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, active: true } : u)));
+      setToast({
+        show: true,
+        message: "User activated successfully",
+        type: 'success'
+      });
       closeDropdown();
     } catch (err) {
-      setError("Failed to activate user: " + ((err as Error).message || String(err)));
+      setToast({
+        show: true,
+        message: "Failed to activate user: " + ((err as Error).message || String(err)),
+        type: 'error'
+      });
     }
   };
 
   const handleDeleteUser = async (userId: string) => {
     const userToDelete = users.find((u) => u.id === userId);
     if (!userToDelete) {
-      setError("Failed to delete user: User not found in list");
+      setToast({
+        show: true,
+        message: "Failed to delete user: User not found in list",
+        type: 'error'
+      });
+      closeDropdown();
       return;
     }
+    
+    // Set loading state for this user
+    setLoadingStates(prev => ({...prev, [userId]: true}));
+    
     try {
       // Prefer deleting by UID if available (auth route), else fallback to numeric DB ID
       if (userToDelete.uid) {
@@ -259,6 +293,12 @@ export default function UsersList() {
         await userApi.deleteUser(userId);
       }
       setUsers((prev) => prev.filter((u) => u.id !== userId && u.uid !== userToDelete.uid));
+      
+      setToast({
+        show: true,
+        message: "User deleted successfully",
+        type: 'success'
+      });
       closeDropdown();
     } catch (err) {
       const msg = (err as Error).message || String(err);
@@ -269,14 +309,35 @@ export default function UsersList() {
           // Fallback: disable user and remove from current list
           await userApi.disableUser(userToDelete.uid);
           setUsers((prev) => prev.filter((u) => u.id !== userId && u.uid !== userToDelete.uid));
+          setToast({
+            show: true,
+            message: "User disabled successfully due to restrictions",
+            type: 'warning'
+          });
           closeDropdown();
           return;
         } catch (fallbackErr) {
-          setError("Failed to delete user: " + ((fallbackErr as Error).message || String(fallbackErr)));
+          setToast({
+            show: true,
+            message: "Failed to delete user: " + ((fallbackErr as Error).message || String(fallbackErr)),
+            type: 'error'
+          });
+          closeDropdown();
           return;
         }
       }
-      setError("Failed to delete user: " + msg);
+      setToast({
+        show: true,
+        message: "Failed to delete user: " + msg,
+        type: 'error'
+      });
+    } finally {
+      // Remove loading state for this user
+      setLoadingStates(prev => {
+        const newState = {...prev};
+        delete newState[userId];
+        return newState;
+      });
     }
   };
 
@@ -370,6 +431,13 @@ export default function UsersList() {
 
         {error && (
           <div className="mb-6 rounded-lg bg-red-100 px-4 py-3 text-red-800 dark:bg-red-900 dark:text-red-100">{error}</div>
+        )}
+        {toast.show && (
+          <Toast 
+            message={toast.message} 
+            type={toast.type} 
+            onClose={() => setToast({...toast, show: false})} 
+          />
         )}
 
         {loading ? (
@@ -529,10 +597,26 @@ export default function UsersList() {
                                   )}
                                   <li>
                                     <DropdownItem
-                                      onItemClick={() => handleDeleteUser(user.id)}
-                                      className="block w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-gray-100 dark:text-red-400 dark:hover:bg-gray-800"
+                                      onItemClick={() => {
+                                        if (!loadingStates[user.id]) {
+                                          handleDeleteUser(user.id);
+                                        }
+                                      }}
+                                      className={`block w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-gray-100 dark:text-red-400 dark:hover:bg-gray-800 ${
+                                        loadingStates[user.id] ? 'opacity-50 cursor-not-allowed' : ''
+                                      }`}
                                     >
-                                      Delete User
+                                      {loadingStates[user.id] ? (
+                                        <div className="flex items-center">
+                                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                          </svg>
+                                          Deleting...
+                                        </div>
+                                      ) : (
+                                        "Delete User"
+                                      )}
                                     </DropdownItem>
                                   </li>
                                 </ul>

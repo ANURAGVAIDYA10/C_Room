@@ -6,6 +6,7 @@ import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import { PublicRoute } from "./components/auth/PublicRoute";
 import { HomeRedirect } from "./components/auth/HomeRedirect";
 import ProtectedPermissionRoute from "./components/auth/ProtectedPermissionRoute";
+import ProtectedRoleRoute from "./components/auth/ProtectedRoleRoute";
 import { Permission } from "./config/permissions";
 import CreateIssueModal from "./main pages/Request Creation/CreateIssueModal";
 import { useState, useEffect, useRef } from 'react';
@@ -17,6 +18,7 @@ import Analytics from "./pages/Dashboard/Analytics";
 import SignIn from "./pages/AuthPages/SignIn";
 import SignUp from "./pages/AuthPages/SignUp";
 import CompleteInvitation from "./pages/AuthPages/CompleteInvitation";
+import RegistrationSuccess from "./pages/AuthPages/RegistrationSuccess";
 import NotFound from "./pages/OtherPage/NotFound";
 import UserProfiles from "./pages/UserProfiles";
 import Carousel from "./pages/UiElements/Carousel";
@@ -161,6 +163,11 @@ export default function App() {
               <CompleteInvitation />
             </PublicRoute>
           } />
+          <Route path="/registration-success" element={
+            <PublicRoute>
+              <RegistrationSuccess />
+            </PublicRoute>
+          } />
           <Route path="/reset-password" element={
             <PublicRoute>
               <ResetPassword />
@@ -183,103 +190,100 @@ export default function App() {
             <Route path="/video-generator" element={<VideoGeneratorPage />} />
           </Route>
           
-          {/* Protected Routes - Wrapped in AppLayout */}
-          <Route element={<AppLayout />}>
-            {/* Dashboard Routes */}
-            <Route path="/ecommerce/dashboard" element={<ProtectedRoute><Ecommerce /></ProtectedRoute>} />
-            <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
-            <Route path="/marketing" element={<ProtectedRoute><Marketing /></ProtectedRoute>} />
-            <Route path="/crm" element={<ProtectedRoute><Crm /></ProtectedRoute>} />
-            <Route path="/stocks" element={<ProtectedRoute><Stocks /></ProtectedRoute>} />
-            <Route path="/saas" element={<ProtectedRoute><Saas /></ProtectedRoute>} />
-            <Route path="/logistics" element={<ProtectedRoute><Logistics /></ProtectedRoute>} />
-
-            <Route path="/calendar" element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
-            <Route path="/invoice" element={<ProtectedRoute><Invoices /></ProtectedRoute>} />
-            <Route path="/invoices" element={<ProtectedRoute><Invoices /></ProtectedRoute>} />
-            <Route path="/chat" element={<ProtectedRoute><Chats /></ProtectedRoute>} />
-            <Route path="/file-manager" element={<ProtectedRoute><FileManager /></ProtectedRoute>} />
-
-            {/* E-commerce */}
-            <Route path="/products-list" element={<ProtectedRoute><ProductList /></ProtectedRoute>} />
-            <Route path="/add-product" element={<ProtectedRoute><AddProduct /></ProtectedRoute>} />
-            <Route path="/billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
-            <Route path="/single-invoice" element={<ProtectedRoute><SingleInvoice /></ProtectedRoute>} />
-            <Route path="/create-invoice" element={<ProtectedRoute><CreateInvoice /></ProtectedRoute>} />
-            <Route path="/transactions" element={<ProtectedRoute><Transactions /></ProtectedRoute>} />
-            <Route path="/single-transaction" element={<ProtectedRoute><SingleTransaction /></ProtectedRoute>} />
-
-            {/* Support */}
-            <Route path="/support-tickets" element={<ProtectedRoute><TicketList /></ProtectedRoute>} />
-            <Route path="/support-ticket-reply" element={<ProtectedRoute><TicketReply /></ProtectedRoute>} />
-
-            {/* Others Page */}
-            <Route path="/profile" element={<ProtectedRoute><UserProfiles /></ProtectedRoute>} />
-            <Route path="/faq" element={<ProtectedRoute><Faqs /></ProtectedRoute>} />
-            <Route path="/pricing-tables" element={<ProtectedRoute><PricingTables /></ProtectedRoute>} />
-            <Route path="/integrations" element={<ProtectedRoute><Integrations /></ProtectedRoute>} />
-            <Route path="/api-keys" element={<ProtectedRoute><ApiKeys /></ProtectedRoute>} />
-            <Route path="/users" element={<ProtectedRoute><UsersList /></ProtectedRoute>} />
-            <Route path="/send-invitation" element={<ProtectedRoute><SendInvitation /></ProtectedRoute>} />
-            <Route path="/organizations" element={<ProtectedRoute><Organizations /></ProtectedRoute>} />
-            <Route path="/request-management/all-open" element={<ProtectedRoute><AllOpen /></ProtectedRoute>} />
-            <Route path="/request-management/assigned-to-me" element={<ProtectedRoute><AllOpen /></ProtectedRoute>} />
-            <Route path="/request-management/unassigned" element={<ProtectedRoute><AllOpen /></ProtectedRoute>} />
-            <Route path="/request-management/resolved" element={<ProtectedRoute><AllOpen /></ProtectedRoute>} />
-            <Route path="/request-management/:issueKey" element={<ProtectedPermissionRoute requiredPermissions={[Permission.VIEW_ISSUES]}><RequestSplitView /></ProtectedPermissionRoute>} />
-            <Route path="/request-management" element={<ProtectedRoute><AllOpen /></ProtectedRoute>} />
-            <Route path="/vendor-management/list" element={<ProtectedRoute><VendorList /></ProtectedRoute>} />
-            <Route path="/vendor-management/contracts" element={<ProtectedRoute><VendorAgreements /></ProtectedRoute>} />
-            <Route path="/vendor-management/contract-details" element={<ProtectedRoute><VendorAgreementDetails /></ProtectedRoute>} />
-            <Route path="/vendor-management/VendorRenewal/Renewal_vendor" element={<ProtectedRoute><RenewalVendor /></ProtectedRoute>} />
-            <Route path="/procurement/renewal" element={<ProtectedRoute><ProcurementRenewal /></ProtectedRoute>} />
-            <Route path="/blank" element={<ProtectedRoute><Blank /></ProtectedRoute>} />
-
-            {/* Forms */}
-            <Route path="/form-elements" element={<ProtectedRoute><FormElements /></ProtectedRoute>} />
-            <Route path="/form-layout" element={<ProtectedRoute><FormLayout /></ProtectedRoute>} />
-
-            {/* Applications */}
-            <Route path="/task-list" element={<ProtectedRoute><TaskList /></ProtectedRoute>} />
-            <Route path="/task-kanban" element={<ProtectedRoute><TaskKanban /></ProtectedRoute>} />
-
-            {/* Email */}
-            <Route path="/inbox" element={<ProtectedRoute><EmailInbox /></ProtectedRoute>} />
-            <Route path="/inbox-details" element={<ProtectedRoute><EmailDetails /></ProtectedRoute>} />
-
-            {/* Tables */}
-            <Route path="/basic-tables" element={<ProtectedRoute><BasicTables /></ProtectedRoute>} />
-            <Route path="/data-tables" element={<ProtectedRoute><DataTables /></ProtectedRoute>} />
-
-            {/* Ui Elements */}
-            <Route path="/alerts" element={<ProtectedRoute><Alerts /></ProtectedRoute>} />
-            <Route path="/avatars" element={<ProtectedRoute><Avatars /></ProtectedRoute>} />
-            <Route path="/badge" element={<ProtectedRoute><Badges /></ProtectedRoute>} />
-            <Route path="/breadcrumb" element={<ProtectedRoute><BreadCrumb /></ProtectedRoute>} />
-            <Route path="/buttons" element={<ProtectedRoute><Buttons /></ProtectedRoute>} />
-            <Route path="/buttons-group" element={<ProtectedRoute><ButtonsGroup /></ProtectedRoute>} />
-            <Route path="/cards" element={<ProtectedRoute><Cards /></ProtectedRoute>} />
-            <Route path="/carousel" element={<ProtectedRoute><Carousel /></ProtectedRoute>} />
-            <Route path="/dropdowns" element={<ProtectedRoute><Dropdowns /></ProtectedRoute>} />
-            <Route path="/images" element={<ProtectedRoute><Images /></ProtectedRoute>} />
-            <Route path="/links" element={<ProtectedRoute><Links /></ProtectedRoute>} />
-            <Route path="/list" element={<ProtectedRoute><Lists /></ProtectedRoute>} />
-            <Route path="/modals" element={<ProtectedRoute><Modals /></ProtectedRoute>} />
-            {/* <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} /> */}
-            <Route path="/pagination" element={<ProtectedRoute><Pagination /></ProtectedRoute>} />
-            <Route path="/popovers" element={<ProtectedRoute><Popovers /></ProtectedRoute>} />
-            <Route path="/progress-bar" element={<ProtectedRoute><Progressbar /></ProtectedRoute>} />
-            <Route path="/ribbons" element={<ProtectedRoute><Ribbons /></ProtectedRoute>} />
-            <Route path="/spinners" element={<ProtectedRoute><Spinners /></ProtectedRoute>} />
-            <Route path="/tabs" element={<ProtectedRoute><Tabs /></ProtectedRoute>} />
-            <Route path="/tooltips" element={<ProtectedRoute><Tooltips /></ProtectedRoute>} />
-            <Route path="/videos" element={<ProtectedRoute><Videos /></ProtectedRoute>} />
-
-            {/* Charts */}
-            <Route path="/line-chart" element={<ProtectedRoute><LineChart /></ProtectedRoute>} />
-            <Route path="/bar-chart" element={<ProtectedRoute><BarChart /></ProtectedRoute>} />
-            <Route path="/pie-chart" element={<ProtectedRoute><PieChart /></ProtectedRoute>} />
-          </Route>
+          {/* Dashboard Routes */}
+          <Route path="/ecommerce/dashboard" element={<ProtectedRoute><AppLayout><Ecommerce /></AppLayout></ProtectedRoute>} />
+          <Route path="/analytics" element={<ProtectedRoute><AppLayout><Analytics /></AppLayout></ProtectedRoute>} />
+          <Route path="/marketing" element={<ProtectedRoute><AppLayout><Marketing /></AppLayout></ProtectedRoute>} />
+          <Route path="/crm" element={<ProtectedRoute><AppLayout><Crm /></AppLayout></ProtectedRoute>} />
+          <Route path="/stocks" element={<ProtectedRoute><AppLayout><Stocks /></AppLayout></ProtectedRoute>} />
+          <Route path="/saas" element={<ProtectedRoute><AppLayout><Saas /></AppLayout></ProtectedRoute>} />
+          <Route path="/logistics" element={<ProtectedRoute><AppLayout><Logistics /></AppLayout></ProtectedRoute>} />
+          
+          <Route path="/calendar" element={<ProtectedRoute><AppLayout><Calendar /></AppLayout></ProtectedRoute>} />
+          <Route path="/invoice" element={<ProtectedRoute><AppLayout><Invoices /></AppLayout></ProtectedRoute>} />
+          <Route path="/invoices" element={<ProtectedRoute><AppLayout><Invoices /></AppLayout></ProtectedRoute>} />
+          <Route path="/chat" element={<ProtectedRoute><AppLayout><Chats /></AppLayout></ProtectedRoute>} />
+          <Route path="/file-manager" element={<ProtectedRoute><AppLayout><FileManager /></AppLayout></ProtectedRoute>} />
+          
+          {/* E-commerce */}
+          <Route path="/products-list" element={<ProtectedRoute><AppLayout><ProductList /></AppLayout></ProtectedRoute>} />
+          <Route path="/add-product" element={<ProtectedRoute><AppLayout><AddProduct /></AppLayout></ProtectedRoute>} />
+          <Route path="/billing" element={<ProtectedRoute><AppLayout><Billing /></AppLayout></ProtectedRoute>} />
+          <Route path="/single-invoice" element={<ProtectedRoute><AppLayout><SingleInvoice /></AppLayout></ProtectedRoute>} />
+          <Route path="/create-invoice" element={<ProtectedRoute><AppLayout><CreateInvoice /></AppLayout></ProtectedRoute>} />
+          <Route path="/transactions" element={<ProtectedRoute><AppLayout><Transactions /></AppLayout></ProtectedRoute>} />
+          <Route path="/single-transaction" element={<ProtectedRoute><AppLayout><SingleTransaction /></AppLayout></ProtectedRoute>} />
+          
+          {/* Support */}
+          <Route path="/support-tickets" element={<ProtectedRoute><AppLayout><TicketList /></AppLayout></ProtectedRoute>} />
+          <Route path="/support-ticket-reply" element={<ProtectedRoute><AppLayout><TicketReply /></AppLayout></ProtectedRoute>} />
+          
+          {/* Others Page */}
+          <Route path="/profile" element={<ProtectedRoute><AppLayout><UserProfiles /></AppLayout></ProtectedRoute>} />
+          <Route path="/faq" element={<ProtectedRoute><AppLayout><Faqs /></AppLayout></ProtectedRoute>} />
+          <Route path="/pricing-tables" element={<ProtectedRoute><AppLayout><PricingTables /></AppLayout></ProtectedRoute>} />
+          <Route path="/integrations" element={<ProtectedRoute><AppLayout><Integrations /></AppLayout></ProtectedRoute>} />
+          <Route path="/api-keys" element={<ProtectedRoute><AppLayout><ApiKeys /></AppLayout></ProtectedRoute>} />
+          <Route path="/users" element={<ProtectedRoleRoute><AppLayout><UsersList /></AppLayout></ProtectedRoleRoute>} />
+          <Route path="/send-invitation" element={<ProtectedRoleRoute><AppLayout><SendInvitation /></AppLayout></ProtectedRoleRoute>} />
+          <Route path="/organizations" element={<ProtectedRoleRoute><AppLayout><Organizations /></AppLayout></ProtectedRoleRoute>} />
+          <Route path="/request-management/all-open" element={<ProtectedRoute><AppLayout><AllOpen /></AppLayout></ProtectedRoute>} />
+          <Route path="/request-management/assigned-to-me" element={<ProtectedRoute><AppLayout><AllOpen /></AppLayout></ProtectedRoute>} />
+          <Route path="/request-management/unassigned" element={<ProtectedRoute><AppLayout><AllOpen /></AppLayout></ProtectedRoute>} />
+          <Route path="/request-management/resolved" element={<ProtectedRoute><AppLayout><AllOpen /></AppLayout></ProtectedRoute>} />
+          <Route path="/request-management/:issueKey" element={<ProtectedPermissionRoute requiredPermissions={[Permission.VIEW_ISSUES]}><AppLayout><RequestSplitView /></AppLayout></ProtectedPermissionRoute>} />
+          <Route path="/request-management" element={<ProtectedRoute><AppLayout><AllOpen /></AppLayout></ProtectedRoute>} />
+          <Route path="/vendor-management/list" element={<ProtectedRoute><AppLayout><VendorList /></AppLayout></ProtectedRoute>} />
+          <Route path="/vendor-management/contracts" element={<ProtectedRoute><AppLayout><VendorAgreements /></AppLayout></ProtectedRoute>} />
+          <Route path="/vendor-management/contract-details" element={<ProtectedRoute><AppLayout><VendorAgreementDetails /></AppLayout></ProtectedRoute>} />
+          <Route path="/vendor-management/VendorRenewal/Renewal_vendor" element={<ProtectedRoute><AppLayout><RenewalVendor /></AppLayout></ProtectedRoute>} />
+          <Route path="/procurement/renewal" element={<ProtectedRoute><AppLayout><ProcurementRenewal /></AppLayout></ProtectedRoute>} />
+          <Route path="/blank" element={<ProtectedRoute><AppLayout><Blank /></AppLayout></ProtectedRoute>} />
+          
+          {/* Forms */}
+          <Route path="/form-elements" element={<ProtectedRoute><AppLayout><FormElements /></AppLayout></ProtectedRoute>} />
+          <Route path="/form-layout" element={<ProtectedRoute><AppLayout><FormLayout /></AppLayout></ProtectedRoute>} />
+          
+          {/* Applications */}
+          <Route path="/task-list" element={<ProtectedRoute><AppLayout><TaskList /></AppLayout></ProtectedRoute>} />
+          <Route path="/task-kanban" element={<ProtectedRoute><AppLayout><TaskKanban /></AppLayout></ProtectedRoute>} />
+          
+          {/* Email */}
+          <Route path="/inbox" element={<ProtectedRoute><AppLayout><EmailInbox /></AppLayout></ProtectedRoute>} />
+          <Route path="/inbox-details" element={<ProtectedRoute><AppLayout><EmailDetails /></AppLayout></ProtectedRoute>} />
+          
+          {/* Tables */}
+          <Route path="/basic-tables" element={<ProtectedRoute><AppLayout><BasicTables /></AppLayout></ProtectedRoute>} />
+          <Route path="/data-tables" element={<ProtectedRoute><AppLayout><DataTables /></AppLayout></ProtectedRoute>} />
+          
+          {/* Ui Elements */}
+          <Route path="/alerts" element={<ProtectedRoute><AppLayout><Alerts /></AppLayout></ProtectedRoute>} />
+          <Route path="/avatars" element={<ProtectedRoute><AppLayout><Avatars /></AppLayout></ProtectedRoute>} />
+          <Route path="/badge" element={<ProtectedRoute><AppLayout><Badges /></AppLayout></ProtectedRoute>} />
+          <Route path="/breadcrumb" element={<ProtectedRoute><AppLayout><BreadCrumb /></AppLayout></ProtectedRoute>} />
+          <Route path="/buttons" element={<ProtectedRoute><AppLayout><Buttons /></AppLayout></ProtectedRoute>} />
+          <Route path="/buttons-group" element={<ProtectedRoute><AppLayout><ButtonsGroup /></AppLayout></ProtectedRoute>} />
+          <Route path="/cards" element={<ProtectedRoute><AppLayout><Cards /></AppLayout></ProtectedRoute>} />
+          <Route path="/carousel" element={<ProtectedRoute><AppLayout><Carousel /></AppLayout></ProtectedRoute>} />
+          <Route path="/dropdowns" element={<ProtectedRoute><AppLayout><Dropdowns /></AppLayout></ProtectedRoute>} />
+          <Route path="/images" element={<ProtectedRoute><AppLayout><Images /></AppLayout></ProtectedRoute>} />
+          <Route path="/links" element={<ProtectedRoute><AppLayout><Links /></AppLayout></ProtectedRoute>} />
+          <Route path="/list" element={<ProtectedRoute><AppLayout><Lists /></AppLayout></ProtectedRoute>} />
+          <Route path="/modals" element={<ProtectedRoute><AppLayout><Modals /></AppLayout></ProtectedRoute>} />
+          {/* <Route path="/notifications" element={<ProtectedRoute><AppLayout><Notifications /></AppLayout></ProtectedRoute>} /> */}
+          <Route path="/pagination" element={<ProtectedRoute><AppLayout><Pagination /></AppLayout></ProtectedRoute>} />
+          <Route path="/popovers" element={<ProtectedRoute><AppLayout><Popovers /></AppLayout></ProtectedRoute>} />
+          <Route path="/progress-bar" element={<ProtectedRoute><AppLayout><Progressbar /></AppLayout></ProtectedRoute>} />
+          <Route path="/ribbons" element={<ProtectedRoute><AppLayout><Ribbons /></AppLayout></ProtectedRoute>} />
+          <Route path="/spinners" element={<ProtectedRoute><AppLayout><Spinners /></AppLayout></ProtectedRoute>} />
+          <Route path="/tabs" element={<ProtectedRoute><AppLayout><Tabs /></AppLayout></ProtectedRoute>} />
+          <Route path="/tooltips" element={<ProtectedRoute><AppLayout><Tooltips /></AppLayout></ProtectedRoute>} />
+          <Route path="/videos" element={<ProtectedRoute><AppLayout><Videos /></AppLayout></ProtectedRoute>} />
+          
+          {/* Charts */}
+          <Route path="/line-chart" element={<ProtectedRoute><AppLayout><LineChart /></AppLayout></ProtectedRoute>} />
+          <Route path="/bar-chart" element={<ProtectedRoute><AppLayout><BarChart /></AppLayout></ProtectedRoute>} />
+          <Route path="/pie-chart" element={<ProtectedRoute><AppLayout><PieChart /></AppLayout></ProtectedRoute>} />
 
           {/* Fallback Routes */}
           <Route path="/maintenance" element={<Maintenance />} />

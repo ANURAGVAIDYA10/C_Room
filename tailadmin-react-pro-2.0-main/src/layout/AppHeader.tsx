@@ -7,12 +7,14 @@ import NotificationDropdown from "../components/header/NotificationDropdown";
 import UserDropdown from "../components/header/UserDropdown";
 import SettingsDropdown from "../components/header/ui/SettingsDropdown";
 import PrimaryButton from "../components/ui/button/PrimaryButton";
+import { useAuth } from "../context/AuthContext";
 
 const AppHeader: React.FC = () => {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
   const [isSettingsOpen, setSettingsOpen] = useState(false);
 
   const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
+  const { isAdmin, isSuperAdmin } = useAuth();
 
   const handleToggle = () => {
     if (window.innerWidth >= 1280) {
@@ -192,10 +194,12 @@ const AppHeader: React.FC = () => {
             {/* <!-- Dark Mode Toggler --> */}
             <NotificationDropdown />
             {/* <!-- Notification Menu Area --> */}
-                        <SettingsDropdown
-              isOpen={isSettingsOpen}
-              onToggle={() => setSettingsOpen(!isSettingsOpen)}
-            />
+                        {(isAdmin || isSuperAdmin) && (
+              <SettingsDropdown
+                isOpen={isSettingsOpen}
+                onToggle={() => setSettingsOpen(!isSettingsOpen)}
+              />
+            )}
             {/* <!-- Settings Menu Area --> */}
           </div>
           {/* <!-- User Area --> */}

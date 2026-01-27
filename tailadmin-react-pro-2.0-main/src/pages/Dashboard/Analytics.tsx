@@ -8,10 +8,14 @@ import AnalyticsBarChart from "../../components/analytics/AnalyticsBarChart";
 import AcquisitionChannelChart from "../../components/analytics/AcquisitionChannelChart";
 import SessionChart from "../../components/analytics/SessionChart";
 import PageMeta from "../../components/common/PageMeta";
+import AnimatedDashboard from "../../components/common/AnimatedDashboard";
+import { useAuth } from "../../context/AuthContext";
 
 export default function Analytics() {
+  const { currentUser } = useAuth();
+
   return (
-    <>
+    <AnimatedDashboard isAuthenticated={!!currentUser}>
       <PageMeta
         title="React.js Analytics Dashboard | TailAdmin - React.js Admin Dashboard Template"
         description="This is React.js Analytics Dashboard page for TailAdmin - React.js Tailwind CSS Admin Dashboard Template"
@@ -49,6 +53,6 @@ export default function Analytics() {
           <RecentOrderAnalytics />
         </div>
       </div>
-    </>
+    </AnimatedDashboard>
   );
 }

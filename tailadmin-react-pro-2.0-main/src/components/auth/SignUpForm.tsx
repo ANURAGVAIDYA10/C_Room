@@ -1,13 +1,90 @@
 import { useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router-dom";
 import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "../../icons";
 import Label from "../form/Label";
 import Input from "../form/input/InputField";
 import Checkbox from "../form/input/Checkbox";
+import { signInWithPopup, GoogleAuthProvider, OAuthProvider } from "firebase/auth";
+import { auth } from "../../firebase";
+import { markUserIntent } from "../../utils/UserIntent";
 
 export default function SignUpForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
+
+  const handleGoogleSignUp = async () => {
+    // Mark explicit user intent
+    markUserIntent();
+    
+    setLoading(true);
+    try {
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      console.log("Google sign-up successful:", result.user);
+      
+      // Redirect to registration success page
+      navigate('/registration-success');
+    } catch (error) {
+      setError("Google sign-up failed. Please try again.");
+      console.error("Error signing up with Google:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMicrosoftSignUp = async () => {
+    // Mark explicit user intent
+    markUserIntent();
+    
+    setLoading(true);
+    try {
+      const provider = new OAuthProvider('microsoft.com');
+      const result = await signInWithPopup(auth, provider);
+      console.log("Microsoft sign-up successful:", result.user);
+      
+      // Redirect to registration success page
+      navigate('/registration-success');
+    } catch (error) {
+      setError("Microsoft sign-up failed. Please try again.");
+      console.error("Error signing up with Microsoft:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    // Mark explicit user intent
+    markUserIntent();
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // Here you would typically call your registration API
+      // For now, just navigate to success page
+      console.log("Form submitted with:", { firstName, lastName, email, password });
+      
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Redirect to registration success page
+      navigate('/registration-success');
+    } catch (err) {
+      setError("Registration failed. Please try again.");
+      console.error("Registration error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="flex flex-col flex-1 w-full overflow-y-auto lg:w-1/2 no-scrollbar">
       <div className="w-full max-w-md mx-auto mb-5 sm:pt-10">
@@ -30,8 +107,18 @@ export default function SignUpForm() {
             </p>
           </div>
           <div>
+            {error && (
+              <div className="mb-4 rounded-lg bg-red-100 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
+                {error}
+              </div>
+            )}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5">
-              <button className="inline-flex items-center justify-center gap-3 py-3 text-sm font-normal text-gray-700 transition-colors bg-gray-100 rounded-lg px-7 hover:bg-gray-200 hover:text-gray-800 dark:bg-white/5 dark:text-white/90 dark:hover:bg-white/10">
+              <button 
+                type="button"
+                onClick={handleGoogleSignUp}
+                disabled={loading}
+                className="inline-flex items-center justify-center gap-3 py-3 text-sm font-normal text-gray-700 transition-colors bg-gray-100 rounded-lg px-7 hover:bg-gray-200 hover:text-gray-800 dark:bg-white/5 dark:text-white/90 dark:hover:bg-white/10 disabled:opacity-50"
+              >
                 <svg
                   width="20"
                   height="20"
@@ -56,9 +143,14 @@ export default function SignUpForm() {
                     fill="#EB4335"
                   />
                 </svg>
-                Sign up with Google
+                {loading ? 'Signing up...' : 'Sign up with Google'}
               </button>
-              <button className="inline-flex items-center justify-center gap-3 py-3 text-sm font-normal text-gray-700 transition-colors bg-gray-100 rounded-lg px-7 hover:bg-gray-200 hover:text-gray-800 dark:bg-white/5 dark:text-white/90 dark:hover:bg-white/10">
+              <button 
+                type="button"
+                onClick={handleMicrosoftSignUp}
+                disabled={loading}
+                className="inline-flex items-center justify-center gap-3 py-3 text-sm font-normal text-gray-700 transition-colors bg-gray-100 rounded-lg px-7 hover:bg-gray-200 hover:text-gray-800 dark:bg-white/5 dark:text-white/90 dark:hover:bg-white/10 disabled:opacity-50"
+              >
                 <svg
                   width="21"
                   className="fill-current"
@@ -69,7 +161,7 @@ export default function SignUpForm() {
                 >
                   <path d="M15.6705 1.875H18.4272L12.4047 8.75833L19.4897 18.125H13.9422L9.59717 12.4442L4.62554 18.125H1.86721L8.30887 10.7625L1.51221 1.875H7.20054L11.128 7.0675L15.6705 1.875ZM14.703 16.475H16.2305L6.37054 3.43833H4.73137L14.703 16.475Z" />
                 </svg>
-                Sign up with X
+                {loading ? 'Signing up...' : 'Sign up with Microsoft'}
               </button>
             </div>
             <div className="relative py-3 sm:py-5">
@@ -82,7 +174,7 @@ export default function SignUpForm() {
                 </span>
               </div>
             </div>
-            <form>
+            <form onSubmit={handleSubmit}>
               <div className="space-y-5">
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                   {/* <!-- First Name --> */}
@@ -94,6 +186,8 @@ export default function SignUpForm() {
                       type="text"
                       id="fname"
                       name="fname"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
                       placeholder="Enter your first name"
                     />
                   </div>
@@ -106,6 +200,8 @@ export default function SignUpForm() {
                       type="text"
                       id="lname"
                       name="lname"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
                       placeholder="Enter your last name"
                     />
                   </div>
@@ -119,6 +215,8 @@ export default function SignUpForm() {
                     type="email"
                     id="email"
                     name="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     placeholder="Enter your email"
                   />
                 </div>
@@ -131,6 +229,8 @@ export default function SignUpForm() {
                     <Input
                       placeholder="Enter your password"
                       type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
                     />
                     <span
                       onClick={() => setShowPassword(!showPassword)}
@@ -164,8 +264,22 @@ export default function SignUpForm() {
                 </div>
                 {/* <!-- Button --> */}
                 <div>
-                  <button className="flex items-center justify-center w-full px-4 py-3 text-sm font-medium text-white transition rounded-lg bg-brand-500 shadow-theme-xs hover:bg-brand-600">
-                    Sign Up
+                  <button 
+                    type="submit"
+                    disabled={loading}
+                    className="flex items-center justify-center w-full px-4 py-3 text-sm font-medium text-white transition rounded-lg bg-brand-500 shadow-theme-xs hover:bg-brand-600 disabled:opacity-50"
+                  >
+                    {loading ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Creating Account...
+                      </>
+                    ) : (
+                      "Sign Up"
+                    )}
                   </button>
                 </div>
               </div>

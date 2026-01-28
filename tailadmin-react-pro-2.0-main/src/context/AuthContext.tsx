@@ -4,7 +4,7 @@ import { auth } from "../firebase";
 import { onAuthStateChanged, signOut, User } from "firebase/auth";
 import { authApi } from "../services/api";
 import { Permission, hasPermission, hasAnyPermission, hasAllPermissions } from "../config/permissions";
-import { startSessionMonitoring, stopSessionMonitoring, loadSessionConfig } from "../utils/UserIntent";
+import { startSessionMonitoring, stopSessionMonitoring } from "../utils/UserIntent";
 import { initCrossTabSync, cleanupCrossTabSync, broadcastLogout, broadcastLogin, onSyncMessage, SyncMessageType } from "../utils/crossTabSync";
 
 // Define the user data structure
@@ -128,9 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log('AuthContext: Initializing cross-tab sync');
     initCrossTabSync();
     
-    // Load session configuration from environment variables (build-time sync)
-    console.log('AuthContext: Loading session configuration from environment variables');
-    loadSessionConfig();
+    
     
     // Listen for logout events from other tabs
     const cleanupLogoutListener = onSyncMessage((message) => {

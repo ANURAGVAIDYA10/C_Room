@@ -210,6 +210,14 @@ export const API_ENDPOINTS = {
   }
 };
 
+// Session configuration
+export const SESSION_CONFIG = {
+  // Default session timeout in minutes - can be overridden by environment variable
+  SESSION_TIMEOUT_MINUTES: parseInt(import.meta.env.VITE_SESSION_TIMEOUT_MINUTES || '5', 10),
+  // Warning time before session expires (in seconds)
+  SESSION_WARNING_SECONDS: 30,
+};
+
 // Export default configuration
 export default {
   ENV,
@@ -219,5 +227,6 @@ export default {
   getApiBaseUrl,
   getFrontendUrl,
   getApiUrl,
-  API_ENDPOINTS
+  API_ENDPOINTS,
+  SESSION_CONFIG
 };

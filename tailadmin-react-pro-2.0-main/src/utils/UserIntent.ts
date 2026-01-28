@@ -55,24 +55,10 @@ export function updateLastActivity(): void {
   console.log('[SESSION_MONITOR] Activity reset - last activity timer refreshed');
 }
 
-// Session timeout in minutes - will be fetched from backend configuration
-let SESSION_TIMEOUT_MINUTES = 5; // Default value until configuration is loaded
+import { SESSION_CONFIG } from '../config/apiConfig';
 
-// Function to load session timeout configuration from environment variables (build-time config)
-export async function loadSessionConfig(): Promise<void> {
-  try {
-    // Read from environment variables (synchronized with backend during build)
-    const envTimeout = import.meta.env.VITE_SESSION_TIMEOUT_MINUTES;
-    if (envTimeout && !isNaN(parseInt(envTimeout, 10))) {
-      SESSION_TIMEOUT_MINUTES = parseInt(envTimeout, 10);
-      console.log('[SESSION_CONFIG] Loaded session timeout from environment:', SESSION_TIMEOUT_MINUTES, 'minutes');
-    } else {
-      console.log('[SESSION_CONFIG] Using default session timeout:', SESSION_TIMEOUT_MINUTES, 'minutes');
-    }
-  } catch (error) {
-    console.error('[SESSION_CONFIG] Error reading environment config, using default timeout:', error);
-  }
-}
+// Session timeout in minutes - uses centralized configuration
+const SESSION_TIMEOUT_MINUTES = SESSION_CONFIG.SESSION_TIMEOUT_MINUTES;
 
 export function checkInactivity(): boolean {
   const now = Date.now();

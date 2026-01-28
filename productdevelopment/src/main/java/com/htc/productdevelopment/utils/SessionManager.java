@@ -125,4 +125,9 @@ public class SessionManager {
         }
         return sessionData.isInactiveFor(sessionConfig.getInactivityTimeoutMinutes()); // Use configured timeout
     }
+    
+    // Get the count of active sessions
+    public int getActiveSessionCount() {
+        return activeSessions.size();
+    }
 }

@@ -239,22 +239,19 @@ export default function CompleteInvitation() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <h2 className="mb-4 text-center text-2xl font-bold text-gray-900 dark:text-white">Registration Complete!</h2>
+          <h2 className="mb-4 text-center text-2xl font-bold text-gray-900 dark:text-white">Registration Successful!</h2>
           <p className="mb-6 text-center text-gray-600 dark:text-gray-400">
             {invitationData?.status === 'ACCEPTED' 
               ? 'This invitation has already been used. Your account is ready to use.'
-              : 'Your account has been created successfully. You will be redirected to the sign-in page shortly.'
+              : 'Your account has been created successfully. Thank you for registering!'
             }
           </p>
-          <div className="flex justify-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
-          </div>
           <div className="mt-6 text-center">
             <button
               onClick={() => navigate('/signin')}
               className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
             >
-              Go to Sign In
+              Continue to Sign In
             </button>
           </div>
         </div>

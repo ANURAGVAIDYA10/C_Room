@@ -5,10 +5,14 @@ import UpcomingSchedule from "../../components/crm/UpcomingSchedule";
 import SalePieChart from "../../components/crm/SalePieChart";
 import EstimatedRevenue from "../../components/crm/EstimatedRevenue";
 import PageMeta from "../../components/common/PageMeta";
+import AnimatedDashboard from "../../components/common/AnimatedDashboard";
+import { useAuth } from "../../context/AuthContext";
 
 export default function Crm() {
+  const { currentUser } = useAuth();
+
   return (
-    <>
+    <AnimatedDashboard isAuthenticated={!!currentUser}>
       <PageMeta
         title="React.js CRM Dashboard | TailAdmin - React.js Admin Dashboard Template"
         description="This is React.js CRM Dashboard page for TailAdmin - React.js Tailwind CSS Admin Dashboard Template"
@@ -50,6 +54,6 @@ export default function Crm() {
           {/* <!-- Table Four --> */}
         </div>
       </div>
-    </>
+    </AnimatedDashboard>
   );
 }

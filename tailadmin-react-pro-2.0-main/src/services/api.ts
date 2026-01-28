@@ -82,7 +82,21 @@ export async function apiCall(endpoint: string, options: RequestInit & { bypassR
         const errorText = await response.text();
         const errorData = JSON.parse(errorText);
         if (errorData.error) {
-          errorMessage = errorData.error;
+          // Convert backend error messages to more user-friendly versions
+          let backendErrorMessage = errorData.error;
+          
+          // Map backend error messages to user-friendly messages
+          if (backendErrorMessage.includes('Firebase token verification failed')) {
+            backendErrorMessage = 'Invalid credentials. Please check your login information and try again.';
+          } else if (backendErrorMessage.includes('No authentication token found')) {
+            backendErrorMessage = 'Session expired. Please log in again.';
+          } else if (backendErrorMessage.includes('Session expired due to inactivity')) {
+            backendErrorMessage = 'Session timed out due to inactivity. Please log in again.';
+          } else if (backendErrorMessage.includes('Session expired')) {
+            backendErrorMessage = 'Session expired. Please log in again.';
+          }
+          
+          errorMessage = backendErrorMessage;
         }
       } catch (parseError: unknown) {
         // If parsing fails, use the status text
@@ -139,6 +153,44 @@ export async function apiCall(endpoint: string, options: RequestInit & { bypassR
     
     if (error instanceof Error && error.name === 'AbortError') {
       throw new Error('Request timed out');
+    }
+    
+    // Handle Firebase-specific errors
+    if (error instanceof Error) {
+      if (error.message.includes('auth/')) {
+        // Transform Firebase error codes to user-friendly messages
+        let userFriendlyMessage = error.message;
+        switch(error.message) {
+          case 'auth/invalid-credential':
+            userFriendlyMessage = 'Invalid credentials. Please check your login information and try again.';
+            break;
+          case 'auth/user-disabled':
+            userFriendlyMessage = 'Your account has been disabled. Please contact administrator.';
+            break;
+          case 'auth/user-not-found':
+            userFriendlyMessage = 'No account found with this email. Please check your email address.';
+            break;
+          case 'auth/wrong-password':
+            userFriendlyMessage = 'Incorrect password. Please try again.';
+            break;
+          case 'auth/email-not-verified':
+            userFriendlyMessage = 'Your email address has not been verified. Please check your email for verification instructions.';
+            break;
+          case 'auth/too-many-requests':
+            userFriendlyMessage = 'Too many failed login attempts. Please try again later.';
+            break;
+          default:
+            userFriendlyMessage = `Authentication error: ${error.message}`;
+        }
+        throw new Error(userFriendlyMessage);
+      }
+      
+      // Handle backend error messages
+      if (error.message.includes("deactivated") || error.message.includes("administrator")) {
+        throw new Error(error.message); // This is already user-friendly
+      } else if (error.message.includes("User account not found")) {
+        throw new Error("Your account is not properly registered in the system. Please contact your administrator.");
+      }
     }
     
     throw error;

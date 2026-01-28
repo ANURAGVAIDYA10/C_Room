@@ -236,6 +236,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         } catch (error) {
           console.error('AuthContext: Error exchanging Firebase token:', error);
+          
+          // More user-friendly error handling
+          let errorMessage = 'An error occurred during authentication.';
+          
+          // Handle specific error types
+          if (error instanceof Error) {
+            if (error.message.includes('auth/')) {
+              // Firebase-specific errors
+              switch(error.message) {
+                case 'auth/invalid-credential':
+                  errorMessage = 'Invalid credentials. Please check your login information and try again.';
+                  break;
+                case 'auth/user-disabled':
+                  errorMessage = 'Your account has been disabled. Please contact administrator.';
+                  break;
+                case 'auth/user-not-found':
+                  errorMessage = 'No account found with this email. Please check your email address.';
+                  break;
+                case 'auth/wrong-password':
+                  errorMessage = 'Incorrect password. Please try again.';
+                  break;
+                default:
+                  errorMessage = `Authentication error: ${error.message}`;
+              }
+            } else {
+              // Handle backend error messages
+              if (error.message.includes("deactivated") || error.message.includes("administrator")) {
+                errorMessage = error.message; // This is already user-friendly
+              } else if (error.message.includes("User account not found")) {
+                errorMessage = "Your account is not properly registered in the system. Please contact your administrator.";
+              } else {
+                errorMessage = `Authentication failed: ${error.message}`;
+              }
+            }
+          }
+          
+          // Note: Error will be handled by the calling component (SignInForm)
+          // Throwing error so the calling component can handle it appropriately
+          throw new Error(errorMessage);
+          
           // Set default values if sync fails
           setUserRole('REQUESTER');
           setUserDepartmentId(null);

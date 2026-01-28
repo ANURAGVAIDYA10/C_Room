@@ -14,12 +14,17 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   console.log('ProtectedRoute: sessionReady=', sessionReady);
   console.log('ProtectedRoute: currentUser exists=', !!currentUser);
 
+  // If still loading or session not ready, show loading state
   if (loading || !sessionReady) {
-    // You can return a loading spinner here if desired
     console.log('ProtectedRoute: Still loading or session not ready, showing loading state');
-    return <div>Loading...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg">Loading...</div>
+      </div>
+    );
   }
 
+  // If user is not authenticated, redirect immediately
   if (!currentUser) {
     console.log('ProtectedRoute: No user, redirecting to signin');
     // Redirect to sign-in page if user is not authenticated
